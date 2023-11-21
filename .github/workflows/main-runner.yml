@@ -13,12 +13,18 @@ jobs:
     steps:
       # git checkout
       - uses: actions/checkout@v3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
       - name: Print debug info
         run: |
           pwd
           ls -al
           whoami
           date
+          npm --version
+          node --version
       - name: Run main script
         run: |
           echo 'test'
+          echo 'console.log("test")' | node
