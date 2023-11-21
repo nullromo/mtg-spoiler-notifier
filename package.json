@@ -1,0 +1,22 @@
+{
+    "name": "mtg-spoiler-notifier",
+    "version": "1.0.0",
+    "description": "Detects new cards uploaded to scryfall.com and sends e-mail updates.",
+    "main": "main.ts",
+    "scripts": {
+        "main": "npx ts-node main.ts"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/nullromo/mtg-spoiler-notifier.git"
+    },
+    "author": "Kyle Kovacs",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/nullromo/mtg-spoiler-notifier/issues"
+    },
+    "homepage": "https://github.com/nullromo/mtg-spoiler-notifier#readme",
+    "devDependencies": {
+        "typescript": "^5.3.2"
+    }
+}
