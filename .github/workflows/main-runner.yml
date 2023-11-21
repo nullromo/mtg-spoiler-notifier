@@ -1,0 +1,24 @@
+name: Run script
+
+on:
+  # run the action every 12 hours
+  schedule:
+    - cron: "0 */12 * * *"
+  # allow this workflow to be run manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # git checkout
+      - uses: actions/checkout@v3
+      - name: Print debug info
+        run: |
+          pwd
+          ls -al
+          whoami
+          date
+      - name: Run main script
+        run: |
+          echo 'test'
