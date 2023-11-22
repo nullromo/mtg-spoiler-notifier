@@ -1,5 +1,21 @@
 import fs from 'fs';
 import axios from 'axios';
+import nodemailer from 'nodemailer';
+
+const transporter = nodemailer.createTransport();
+
+transporter.sendMail(
+    {
+        from: 'kylerobertkovacs@gmail.com',
+        subject: 'Test Subject',
+        text: 'Test text',
+        to: 'kylerobertkovacs@gmail.com',
+    },
+    (error, info) => {
+        console.log(error);
+        console.log(info);
+    },
+);
 
 // get results from previous run
 const getPreviousResults = () => {
@@ -41,4 +57,6 @@ const getCardCatalog = async () => {
         return !previousResults.includes(card);
     });
     saveResults(newCards);
-})();
+})().catch((error) => {
+    console.error(error);
+});
