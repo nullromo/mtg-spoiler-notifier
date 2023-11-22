@@ -1,17 +1,39 @@
 import fs from 'fs';
-
-// print debug message
-console.log('hello from typescript');
+import axios from 'axios';
 
 // get results from previous run
-const lastResults = fs.readFileSync('last-results.txt').toString();
-
-// create results for this run
-const results = `test results content at ${new Date().toLocaleString()}`;
-
-// print debug message
-console.log('last results were', lastResults);
-console.log('new results are', results);
+const getPreviousResults = () => {
+    return JSON.parse(
+        fs.readFileSync('previous-results.txt').toString(),
+    ) as string[];
+};
 
 // save results for this run
-fs.writeFileSync('results.txt', results);
+const saveResults = (results: string[]) => {
+    fs.writeFileSync('results.txt', JSON.stringify(results));
+};
+
+// get a list of all cards from Scryfall
+const getCardCatalog = async () => {
+    return axios
+        .get('https://api.scryfall.com/catalog/card-names')
+        .then((result) => {
+            return (
+                result.data as {
+                    object: string;
+                    uri: string;
+                    total_values: number;
+                    data: string[];
+                }
+            ).data;
+        });
+};
+
+(async () => {
+    const previousResults = getPreviousResults();
+    const allCards = await getCardCatalog();
+    const newCards = allCards.filter((card) => {
+        return !previousResults.includes(card);
+    });
+    saveResults(newCards);
+})();
