@@ -3,9 +3,14 @@ import axios from 'axios';
 
 // get results from previous run
 const getPreviousResults = () => {
-    return JSON.parse(
-        fs.readFileSync('previous-results.txt').toString(),
-    ) as string[];
+    try {
+        return JSON.parse(
+            fs.readFileSync('previous-results.txt').toString(),
+        ) as string[];
+    } catch (error) {
+        console.error(error);
+        return [];
+    }
 };
 
 // save results for this run
