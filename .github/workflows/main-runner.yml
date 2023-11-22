@@ -34,3 +34,10 @@ jobs:
           echo 'test'
           echo 'console.log("test")' | node
           npm run main
+
+      - name: Upload results
+        uses: actions/upload-artifact@v3
+        with:
+          name: Results
+          path: results.txt
+
