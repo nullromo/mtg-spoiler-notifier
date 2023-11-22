@@ -34,16 +34,15 @@ jobs:
         run: npm ci
 
       # download the artifacts from last run
-      - uses: actions/download-artifact@v3
-        with:
-          name: Results
-          path: last-run/
+      - run: gh run download -n Results
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # make sure last run artifact was downloaded
       - name: Delete me
         run: |
           ls -al
-          ls -al last-run
+          cat results.txt
 
       # run the main script
       - name: Run main script
