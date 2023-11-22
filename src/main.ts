@@ -1,21 +1,21 @@
 import fs from 'fs';
 import axios from 'axios';
-import nodemailer from 'nodemailer';
+//import nodemailer from 'nodemailer';
 
-const transporter = nodemailer.createTransport();
+//const transporter = nodemailer.createTransport();
 
-transporter.sendMail(
-    {
-        from: 'kylerobertkovacs@gmail.com',
-        subject: 'Test Subject',
-        text: 'Test text',
-        to: 'kylerobertkovacs@gmail.com',
-    },
-    (error, info) => {
-        console.log(error);
-        console.log(info);
-    },
-);
+//transporter.sendMail(
+//{
+//from: 'kylerobertkovacs@gmail.com',
+//subject: 'Test Subject',
+//text: 'Test text',
+//to: 'kylerobertkovacs@gmail.com',
+//},
+//(error, info) => {
+//console.log(error);
+//console.log(info);
+//},
+//);
 
 // get results from previous run
 const getPreviousResults = () => {
