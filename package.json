@@ -17,6 +17,7 @@
     },
     "homepage": "https://github.com/nullromo/mtg-spoiler-notifier#readme",
     "devDependencies": {
+        "@types/node": "^20.9.3",
         "typescript": "^5.3.2"
     }
 }
