@@ -39,13 +39,28 @@ const getCardCatalog = async () => {
 };
 
 (async () => {
+    // load previous card list
     const previousResults = getPreviousResults();
+
+    // get current card list and save it
     const allCards = await getCardCatalog();
+    // remove one card at random for testing purposes
+    allCards.splice(Math.floor(Math.random() * allCards.length), 1);
+    saveResults(allCards);
+
+    // find new cards
     const newCards = allCards.filter((card) => {
         return !previousResults.includes(card);
     });
-    saveResults(newCards);
-    await emailer.broadcast('Test text');
+
+    // report new cards
+    if (newCards.length > 0) {
+        await emailer.broadcast(
+            `The following cards have been added to Scryfall: ${newCards.join(
+                ', ',
+            )}`,
+        );
+    }
 })()
     .catch((error) => {
         console.log(error);

@@ -24,7 +24,7 @@ export class EMailer {
             this.transporter.sendMail(
                 {
                     from: 'mtgspoilernotifier@gmail.com',
-                    subject: 'MTG Spoiler Notification',
+                    subject: `MTG Spoiler Notification ${new Date().toLocaleString()}`,
                     text,
                     to: recipient,
                 },
