@@ -1,82 +1,9 @@
 import fs from 'fs';
 import axios from 'axios';
-import nodemailer from 'nodemailer';
-import { SMTPServer } from 'smtp-server';
+import { EMailer } from './e-mail';
 
-const emailServer = new SMTPServer({
-    authOptional: true,
-    onAuth: (auth, session, callback) => {
-        console.log('auth');
-        callback(null);
-    },
-    onClose: () => {
-        console.log('close');
-    },
-    onConnect: (session, callback) => {
-        console.log('connect');
-        callback();
-    },
-    onData: (stream, session, callback) => {
-        console.log('data');
-        stream.pipe(process.stdout);
-        stream.on('end', callback);
-    },
-    onMailFrom: (addess, session, callback) => {
-        console.log('mailfrom');
-        callback();
-    },
-    onRcptTo: (address, session, callback) => {
-        console.log('rcpt to');
-        callback();
-    },
-    secure: false,
-});
-emailServer.listen(1234);
-
-const transporter = nodemailer.createTransport({
-    host: 'localhost',
-    port: 1234,
-    secure: false,
-    tls: { rejectUnauthorized: false },
-});
-
-const sendEmail = async () => {
-    return new Promise<void>((resolve, reject) => {
-        transporter.sendMail(
-            {
-                from: 'kylerobertkovacs@gmail.com',
-                subject: 'Test Subject',
-                text: 'Test text',
-                to: 'kylerobertkovacs@gmail.com',
-            },
-            (error, info) => {
-                if (error) {
-                    console.error(error);
-                    reject(error);
-                } else {
-                    console.log(info);
-                    resolve();
-                }
-            },
-        );
-    });
-};
-
-(async () => {
-    console.log('Sending e-mail');
-    await sendEmail();
-})()
-    .catch((error) => {
-        console.log(error);
-    })
-    .finally(() => {
-        console.log('Shutting down e-mail transport');
-        transporter.close();
-        console.log('Shutting down e-mail server');
-        emailServer.close();
-    });
-
-/*
+// create an e-mailer
+const emailer = new EMailer();
 
 // get results from previous run
 const getPreviousResults = () => {
@@ -118,8 +45,11 @@ const getCardCatalog = async () => {
         return !previousResults.includes(card);
     });
     saveResults(newCards);
-})().catch((error) => {
-    console.error(error);
-});
-
-*/
+    await emailer.broadcast('Test text');
+})()
+    .catch((error) => {
+        console.log(error);
+    })
+    .finally(() => {
+        emailer.close();
+    });
