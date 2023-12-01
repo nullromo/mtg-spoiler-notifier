@@ -8,6 +8,12 @@ const CREDENTIALS = {
     user: 'mtgspoilernotifier@gmail.com',
 };
 
+export interface AttachmentData {
+    filename: string;
+    path: string;
+    cid: string;
+}
+
 export class EMailer {
     private readonly transporter: nodemailer.Transporter;
 
@@ -19,7 +25,11 @@ export class EMailer {
         });
     }
 
-    private readonly sendEmail = async (recipient: string, html: string) => {
+    private readonly sendEmail = async (
+        recipient: string,
+        html: string,
+        attachments: AttachmentData[],
+    ) => {
         return new Promise<void>((resolve, reject) => {
             this.transporter.sendMail(
                 {
@@ -41,10 +51,13 @@ export class EMailer {
         });
     };
 
-    public readonly broadcast = async (text: string) => {
+    public readonly broadcast = async (
+        text: string,
+        attachments: AttachmentData[],
+    ) => {
         return Promise.all(
             RECIPIENTS.map(async (recipient) => {
-                return this.sendEmail(recipient, text);
+                return this.sendEmail(recipient, text, attachments);
             }),
         );
     };

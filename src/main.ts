@@ -49,7 +49,7 @@ const getCardCatalog = async () => {
     saveResults(allCards);
 
     // find new cards
-    const newCards = allCards
+    const newCardNames = allCards
         .filter((card) => {
             return !previousResults.includes(card);
         })
@@ -60,20 +60,36 @@ const getCardCatalog = async () => {
             const cardImage = await axios.get(cardData.data.image_uris.png, {
                 responseType: 'arraybuffer',
             });
-            fs.writeFileSync(`images/${name}.png`, cardImage.data);
-            return { name };
+            const imagePath = `images/${name}.png`;
+            fs.writeFileSync(imagePath, cardImage.data);
+            return { name, imagePath };
         });
+
+    const newCards = await Promise.all(newCardNames);
 
     // report new cards
     if (newCards.length > 0) {
-        await emailer.broadcast(
-            `
+        const html = `
 <html>
     <div>
-        The following cards have been added to Scryfall: ${newCards.join(', ')}
+        The following cards have been added to Scryfall: ${newCards
+            .map((card) => {
+                return `<div>${card.name}<br /><img src="cid:${card.name}" /></div>`;
+            })
+            .join('<br />')}
     </div>
 </html>
-`,
+`;
+        console.log('Sending e-mail html:', html);
+        await emailer.broadcast(
+            html,
+            newCards.map((card) => {
+                return {
+                    filename: `${card.name}.png`,
+                    path: card.imagePath,
+                    cid: card.name,
+                };
+            }),
         );
     }
 })()
