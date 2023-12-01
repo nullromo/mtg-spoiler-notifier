@@ -49,16 +49,31 @@ const getCardCatalog = async () => {
     saveResults(allCards);
 
     // find new cards
-    const newCards = allCards.filter((card) => {
-        return !previousResults.includes(card);
-    });
+    const newCards = allCards
+        .filter((card) => {
+            return !previousResults.includes(card);
+        })
+        .map(async (name) => {
+            const cardData = (await axios.get(
+                `https://api.scryfall.com/cards/named?exact=${name}`,
+            )) as { data: { image_uris: { png: string } } };
+            const cardImage = await axios.get(cardData.data.image_uris.png, {
+                responseType: 'arraybuffer',
+            });
+            fs.writeFileSync(`images/${name}.png`, cardImage.data);
+            return { name };
+        });
 
     // report new cards
     if (newCards.length > 0) {
         await emailer.broadcast(
-            `The following cards have been added to Scryfall: ${newCards.join(
-                ', ',
-            )}`,
+            `
+<html>
+    <div>
+        The following cards have been added to Scryfall: ${newCards.join(', ')}
+    </div>
+</html>
+`,
         );
     }
 })()

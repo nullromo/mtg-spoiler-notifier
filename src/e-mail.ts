@@ -19,13 +19,13 @@ export class EMailer {
         });
     }
 
-    private readonly sendEmail = async (recipient: string, text: string) => {
+    private readonly sendEmail = async (recipient: string, html: string) => {
         return new Promise<void>((resolve, reject) => {
             this.transporter.sendMail(
                 {
                     from: 'mtgspoilernotifier@gmail.com',
                     subject: `MTG Spoiler Notification ${new Date().toLocaleString()}`,
-                    text,
+                    html,
                     to: recipient,
                 },
                 (error, info) => {
