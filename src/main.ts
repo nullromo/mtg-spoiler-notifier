@@ -38,13 +38,18 @@ const getCardCatalog = async () => {
         });
 };
 
+const nameToCID = (name: string) => {
+    return name.replaceAll(/\s/g, '');
+};
+
 (async () => {
     // load previous card list
     const previousResults = getPreviousResults();
 
     // get current card list and save it
     const allCards = await getCardCatalog();
-    // remove one card at random for testing purposes
+    // remove two cards at random for testing purposes
+    allCards.splice(Math.floor(Math.random() * allCards.length), 1);
     allCards.splice(Math.floor(Math.random() * allCards.length), 1);
     saveResults(allCards);
 
@@ -54,40 +59,47 @@ const getCardCatalog = async () => {
             return !previousResults.includes(card);
         })
         .map(async (name) => {
-            const cardData = (await axios.get(
-                `https://api.scryfall.com/cards/named?exact=${name}`,
-            )) as { data: { image_uris: { png: string } } };
-            const cardImage = await axios.get(cardData.data.image_uris.png, {
-                responseType: 'arraybuffer',
-            });
+            const cardData: { data: { image_uris: { png: string } } } =
+                await axios.get(
+                    `https://api.scryfall.com/cards/named?exact=${name}`,
+                );
+            const cardImage: { data: string } = await axios.get(
+                cardData.data.image_uris.png,
+                { responseType: 'arraybuffer' },
+            );
             const imagePath = `images/${name}.png`;
             fs.writeFileSync(imagePath, cardImage.data);
-            return { name, imagePath };
+            return { imagePath, name };
         });
 
     const newCards = await Promise.all(newCardNames);
 
     // report new cards
     if (newCards.length > 0) {
-        const html = `
-<html>
+        const html = `<html>
     <div>
-        The following cards have been added to Scryfall: ${newCards
+        The following cards have
+        been added to Scryfall:
+        ${newCards
             .map((card) => {
-                return `<div>${card.name}<br /><img src="cid:${card.name}" /></div>`;
+                const imageSrc = nameToCID(card.name);
+                return `<div>
+            ${card.name}
+            <br />
+            <img src="cid:${imageSrc}" />
+        </div>`;
             })
-            .join('<br />')}
+            .join('\n        <br />\n        ')}
     </div>
-</html>
-`;
+</html>`;
         console.log('Sending e-mail html:', html);
         await emailer.broadcast(
             html,
             newCards.map((card) => {
                 return {
+                    cid: nameToCID(card.name),
                     filename: `${card.name}.png`,
                     path: card.imagePath,
-                    cid: card.name,
                 };
             }),
         );
