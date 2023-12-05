@@ -78,8 +78,9 @@ const nameToCID = (name: string) => {
     if (newCards.length > 0) {
         const html = `<html>
     <div>
-        The following cards have
-        been added to Scryfall:
+        This is an automated e-mail from <a href="https://github.com/nullromo/mtg-spoiler-notifier/">MTG Spoiler Notifier</a>.
+        <br />
+        The following cards have been added to Scryfall since the last notification was sent out.
         ${newCards
             .map((card) => {
                 const imageSrc = nameToCID(card.name);

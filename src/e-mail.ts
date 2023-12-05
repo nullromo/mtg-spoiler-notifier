@@ -1,5 +1,4 @@
 import nodemailer from 'nodemailer';
-import libqp from 'libqp';
 
 const RECIPIENTS = ['kylerobertkovacs@gmail.com'];
 
@@ -36,8 +35,9 @@ export class EMailer {
                 {
                     attachments,
                     from: 'mtgspoilernotifier@gmail.com',
-                    html: libqp.wrap(html),
+                    html,
                     subject: `MTG Spoiler Notification ${new Date().toLocaleString()}`,
+                    textEncoding: 'base64',
                     to: recipient,
                 },
                 (error, info) => {
