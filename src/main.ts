@@ -110,5 +110,16 @@ const nameToCID = (name: string) => {
         console.log(error);
     })
     .finally(() => {
+        // remove stored image files
+        const files = fs.readdirSync('./images');
+        files.forEach((file) => {
+            if (file.startsWith('.')) {
+                return;
+            }
+            const path = `./images/${file}`;
+            console.log(`Removing ${path}`);
+            fs.unlinkSync(path);
+        });
+        // close the e-mailer
         emailer.close();
     });
