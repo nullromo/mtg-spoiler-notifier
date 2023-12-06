@@ -1,5 +1,5 @@
 node_modules/
-results.txt
-previous-results.txt
+results.json
+previous-results.json
 images/
 Session.vim

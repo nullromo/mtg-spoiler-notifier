@@ -11,7 +11,7 @@ const emailer = new EMailer();
 const getPreviousResults = () => {
     try {
         return JSON.parse(
-            fs.readFileSync('previous-results.txt').toString(),
+            fs.readFileSync('previous-results.json').toString(),
         ) as string[];
     } catch (error) {
         console.error(error);
