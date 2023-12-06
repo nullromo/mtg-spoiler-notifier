@@ -5,6 +5,10 @@ import { FileTools } from './fileTools';
 import { ScryfallTools } from './scryfallTools';
 import { Util } from './util';
 
+// there is a deprecation warning that shows right now. This code can tell that
+// it's coming from nodemailer. It's a compatibility issue between the newer
+// Node.js version and the older nodemailer version. The solution is to wait
+// for a new version of nodemailer to be released
 //process.on('warning', (warning) => { console.log(warning.stack); });
 
 // create an e-mailer
