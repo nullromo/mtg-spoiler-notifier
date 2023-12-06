@@ -1,7 +1,8 @@
 import fs from 'fs';
-import axios from 'axios';
 import yargs from 'yargs';
 import { EMailer } from './e-mail';
+import { ScryfallTools } from './scryfallTools';
+import { Util } from './util';
 
 // create an e-mailer
 const emailer = new EMailer();
@@ -23,22 +24,6 @@ const saveResults = (results: string[]) => {
     fs.writeFileSync('results.txt', JSON.stringify(results));
 };
 
-// get a list of all cards from Scryfall
-const getCardCatalog = async () => {
-    return axios
-        .get('https://api.scryfall.com/catalog/card-names')
-        .then((result) => {
-            return (
-                result.data as {
-                    object: string;
-                    uri: string;
-                    total_values: number;
-                    data: string[];
-                }
-            ).data;
-        });
-};
-
 // convert a card name to an appropriate content ID for html purposes
 // Note: there may be edge cases to handle here
 const nameToCID = (name: string) => {
@@ -56,39 +41,40 @@ const nameToCID = (name: string) => {
     const previousResults = getPreviousResults();
 
     // get current card list
-    const allCards = await getCardCatalog();
-
-    // remove two cards at random for testing purposes
-    for (let n = 0; n < args.n; n += 1) {
-        allCards.splice(Math.floor(Math.random() * allCards.length), 1);
-    }
+    const allCards = await ScryfallTools.getCardCatalog();
 
     // save card list
     saveResults(allCards);
 
+    // remove n cards at random for testing purposes
+    for (let n = 0; n < args.n; n += 1) {
+        Util.removeRandom(previousResults);
+    }
+
     // find new cards
     const newCardNames = allCards
         .filter((card) => {
+            // remove any card in the new card list that was already in the
+            // previous card list
             return !previousResults.includes(card);
         })
         .map(async (name) => {
-            const cardData: { data: { image_uris: { png: string } } } =
-                await axios.get(
-                    `https://api.scryfall.com/cards/named?exact=${name}`,
-                );
-            const cardImage: { data: string } = await axios.get(
-                cardData.data.image_uris.png,
-                { responseType: 'arraybuffer' },
-            );
+            // get the card details and image
+            const card = await ScryfallTools.getCard(name);
+
+            // save the image
             const imagePath = `images/${name}.png`;
-            fs.writeFileSync(imagePath, cardImage.data);
+            fs.writeFileSync(imagePath, card.image);
+
             return { imagePath, name };
         });
 
+    // wait for all the card images to be saved
     const newCards = await Promise.all(newCardNames);
 
     // report new cards
     if (newCards.length > 0) {
+        // prepare e-mail content
         const html = `<html>
     <div>
         This is an automated e-mail from <a href="https://github.com/nullromo/mtg-spoiler-notifier/">MTG Spoiler Notifier</a>.
@@ -107,6 +93,8 @@ const nameToCID = (name: string) => {
     </div>
 </html>`;
         console.log('Sending e-mail html:', html);
+
+        // send e-mail to all recipients
         await emailer.broadcast(
             html,
             newCards.map((card) => {
@@ -133,6 +121,7 @@ const nameToCID = (name: string) => {
             console.log(`Removing ${path}`);
             fs.unlinkSync(path);
         });
+
         // close the e-mailer
         emailer.close();
     });
