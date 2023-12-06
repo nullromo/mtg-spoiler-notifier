@@ -4,6 +4,8 @@ import { EMailer } from './e-mail';
 import { ScryfallTools } from './scryfallTools';
 import { Util } from './util';
 
+//process.on('warning', (warning) => { console.log(warning.stack); });
+
 // create an e-mailer
 const emailer = new EMailer();
 
@@ -14,20 +16,14 @@ const getPreviousResults = () => {
             fs.readFileSync('previous-results.json').toString(),
         ) as string[];
     } catch (error) {
-        console.error(error);
+        console.error('Could not find previous results. Using empty list.');
         return [];
     }
 };
 
 // save results for this run
 const saveResults = (results: string[]) => {
-    fs.writeFileSync('results.txt', JSON.stringify(results));
-};
-
-// convert a card name to an appropriate content ID for html purposes
-// Note: there may be edge cases to handle here
-const nameToCID = (name: string) => {
-    return name.replaceAll(/\s/g, '');
+    fs.writeFileSync('results.json', JSON.stringify(results));
 };
 
 // main program
@@ -82,7 +78,7 @@ const nameToCID = (name: string) => {
         The following cards have been added to Scryfall since the last notification was sent out.
         ${newCards
             .map((card) => {
-                const imageSrc = nameToCID(card.name);
+                const imageSrc = Util.nameToCID(card.name);
                 return `<div>
             ${card.name}
             <br />
@@ -105,6 +101,8 @@ const nameToCID = (name: string) => {
                 };
             }),
         );
+    } else {
+        console.log('No new cards to report.');
     }
 })()
     .catch((error) => {

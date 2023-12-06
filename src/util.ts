@@ -10,4 +10,10 @@ export class Util {
     public static readonly removeRandom = <T>(list: T[]) => {
         return list.splice(Math.floor(Math.random() * list.length), 1);
     };
+
+    // convert a card name to an appropriate content ID for html purposes
+    // Note: there may be edge cases to handle here
+    public static nameToCID = (name: string) => {
+        return name.replaceAll(/\s/g, '');
+    };
 }
