@@ -1,6 +1,7 @@
 import fs from 'fs';
 import yargs from 'yargs';
 import { EMailer } from './e-mail';
+import { FileTools } from './fileTools';
 import { ScryfallTools } from './scryfallTools';
 import { Util } from './util';
 
@@ -8,23 +9,6 @@ import { Util } from './util';
 
 // create an e-mailer
 const emailer = new EMailer();
-
-// get results from previous run
-const getPreviousResults = () => {
-    try {
-        return JSON.parse(
-            fs.readFileSync('previous-results.json').toString(),
-        ) as string[];
-    } catch (error) {
-        console.error('Could not find previous results. Using empty list.');
-        return [];
-    }
-};
-
-// save results for this run
-const saveResults = (results: string[]) => {
-    fs.writeFileSync('results.json', JSON.stringify(results));
-};
 
 // main program
 (async () => {
@@ -34,13 +18,13 @@ const saveResults = (results: string[]) => {
         .parse(process.argv);
 
     // load previous card list
-    const previousResults = getPreviousResults();
+    const previousResults = FileTools.getPreviousResults();
 
     // get current card list
     const allCards = await ScryfallTools.getCardCatalog();
 
     // save card list
-    saveResults(allCards);
+    FileTools.saveResults(allCards);
 
     // remove n cards at random for testing purposes
     for (let n = 0; n < args.n; n += 1) {
@@ -95,7 +79,7 @@ const saveResults = (results: string[]) => {
             html,
             newCards.map((card) => {
                 return {
-                    cid: nameToCID(card.name),
+                    cid: Util.nameToCID(card.name),
                     filename: `${card.name}.png`,
                     path: card.imagePath,
                 };
