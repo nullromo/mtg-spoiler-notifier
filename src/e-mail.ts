@@ -1,6 +1,9 @@
+import fs from 'fs';
 import nodemailer from 'nodemailer';
 
-const RECIPIENTS = ['kylerobertkovacs@gmail.com'];
+const RECIPIENTS = JSON.parse(
+    fs.readFileSync('./recipients.json').toString(),
+) as string[];
 
 const CREDENTIALS = {
     //pass: 'mtg-spoiler-notifier69',
