@@ -5,7 +5,7 @@ import { Util } from './util';
 const SCRYFALL_API_DELAY = 100;
 
 // incomplete type for Scryfall card data
-type ScryfallCard = { data: { image_uris: { png: string } } };
+type ScryfallCard = { image_uris: { png: string } };
 
 // tools for getting data from Scryfall
 class ScryfallToolsClass {
@@ -37,7 +37,7 @@ class ScryfallToolsClass {
     // gets the data and image for a single card by name
     public readonly getCard = async (name: string) => {
         await Util.delay(SCRYFALL_API_DELAY);
-        const data: ScryfallCard = await axios.get(
+        const data: { data: ScryfallCard } = await axios.get(
             `https://api.scryfall.com/cards/named?exact=${name}`,
         );
         await Util.delay(SCRYFALL_API_DELAY);
@@ -45,7 +45,7 @@ class ScryfallToolsClass {
             data.data.image_uris.png,
             { responseType: 'arraybuffer' },
         );
-        return { data, image: image.data };
+        return { data: data.data, image: image.data };
     };
 }
 
