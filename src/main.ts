@@ -1,5 +1,6 @@
 import fs from 'fs';
 import axios from 'axios';
+import yargs from 'yargs';
 import { EMailer } from './e-mail';
 
 // create an e-mailer
@@ -38,19 +39,31 @@ const getCardCatalog = async () => {
         });
 };
 
+// convert a card name to an appropriate content ID for html purposes
+// Note: there may be edge cases to handle here
 const nameToCID = (name: string) => {
     return name.replaceAll(/\s/g, '');
 };
 
+// main program
 (async () => {
+    // parse command line arguments
+    const args = await yargs
+        .option('n', { alias: 'number-to-remove', default: 0, type: 'number' })
+        .parse(process.argv);
+
     // load previous card list
     const previousResults = getPreviousResults();
 
-    // get current card list and save it
+    // get current card list
     const allCards = await getCardCatalog();
+
     // remove two cards at random for testing purposes
-    allCards.splice(Math.floor(Math.random() * allCards.length), 1);
-    allCards.splice(Math.floor(Math.random() * allCards.length), 1);
+    for (let n = 0; n < args.n; n += 1) {
+        allCards.splice(Math.floor(Math.random() * allCards.length), 1);
+    }
+
+    // save card list
     saveResults(allCards);
 
     // find new cards
