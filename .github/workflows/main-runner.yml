@@ -36,7 +36,7 @@ jobs:
       # download the artifacts from last run
       - run: |
           gh run download -n Results || true
-          [ -f results.json ] && mv results.json previous-results.json
+          [ ! -f results.json ] || mv results.json previous-results.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
