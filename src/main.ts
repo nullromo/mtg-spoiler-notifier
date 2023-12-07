@@ -9,6 +9,9 @@ import { Util } from './util';
 // has gone wrong and the list of remembered cards should be reset
 const CARD_LIST_ERROR_THRESHOLD = 2000;
 
+// restrict the maximum number of cards that can be sent at one time
+const MAX_CARDS = 20;
+
 // there is a deprecation warning that shows right now. This code can tell that
 // it's coming from nodemailer. It's a compatibility issue between the newer
 // Node.js version and the older nodemailer version. The solution is to wait
@@ -74,15 +77,19 @@ const emailer = new EMailer();
     // wait for all the card images to be saved
     const newCards = await Promise.all(newCardInfo);
 
-    // report new cards
-    if (newCards.length > 0) {
+    // report new cards in chunks of MAX_CARDS at a time
+    while (newCards.length > 0) {
+        // get a list of cards to send out on this loop
+        const cardsToSendOut = newCards.slice(0, MAX_CARDS);
+        console.log('Sending', cardsToSendOut.length, 'cards.');
+
         // prepare e-mail content
         const html = `<html>
     <div>
         This is an automated e-mail from <a href="https://github.com/nullromo/mtg-spoiler-notifier/">MTG Spoiler Notifier</a>.
         <br />
         The following cards have been added to Scryfall since the last notification was sent out.
-        ${newCards
+        ${cardsToSendOut
             .map((card) => {
                 const imageSrc = Util.nameToCID(card.name);
                 return `<div>
@@ -97,9 +104,10 @@ const emailer = new EMailer();
         console.log('Sending e-mail html:', html);
 
         // send e-mail to all recipients
+        // eslint-disable-next-line no-await-in-loop
         await emailer.broadcast(
             html,
-            newCards.map((card) => {
+            cardsToSendOut.map((card) => {
                 return {
                     cid: Util.nameToCID(card.name),
                     filename: `${card.name}.png`,
@@ -107,9 +115,20 @@ const emailer = new EMailer();
                 };
             }),
         );
-    } else {
-        console.log('No new cards to report.');
+
+        // remove the chunk of cards that already got sent out
+        newCards.splice(MAX_CARDS, newCards.length);
+
+        // remove stored image files
+        FileTools.removeImages();
+
+        // wait a little to avoid any kind of rate-limiting issues with the
+        // e-mail. We're not in a rush here
+        // eslint-disable-next-line no-await-in-loop
+        await Util.delay(2000);
     }
+
+    console.log('No more new cards to report.');
 })()
     .catch((error) => {
         console.log(error);
