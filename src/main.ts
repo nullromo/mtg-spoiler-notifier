@@ -74,27 +74,28 @@ const emailer = new EMailer();
         newCardNames.splice(0, newCardNames.length);
     }
 
-    // get data and images for the new cards
-    const newCardInfo = newCardNames.map(async (name) => {
-        // get the card details and image
-        const card = await ScryfallTools.getCard(name);
-
-        // save the image
-        const imagePath = `images/${name}.png`;
-        fs.writeFileSync(imagePath, card.image);
-
-        return { imagePath, name };
-    });
-
-    // wait for all the card images to be saved
-    const newCards = await Promise.all(newCardInfo);
-    console.log('Got information for', newCards.length, 'cards.');
-
     // report new cards in chunks of MAX_CARDS at a time
-    while (newCards.length > 0) {
+    while (newCardNames.length > 0) {
         // get a list of cards to send out on this loop
-        const cardsToSendOut = newCards.slice(0, MAX_CARDS);
-        console.log('Sending', cardsToSendOut.length, 'cards.');
+        const cardNamesToSend = newCardNames.slice(0, MAX_CARDS);
+        console.log('Will send out', cardNamesToSend.length, 'cards.');
+
+        // get data and images for the new cards
+        const cardInfoToSent = cardNamesToSend.map(async (name) => {
+            // get the card details and image
+            const card = await ScryfallTools.getCard(name);
+
+            // save the image
+            const imagePath = `images/${name}.png`;
+            fs.writeFileSync(imagePath, card.image);
+
+            return { imagePath, name };
+        });
+
+        // wait for all the card images to be saved
+        // eslint-disable-next-line no-await-in-loop
+        const cardsToSend = await Promise.all(cardInfoToSent);
+        console.log('Got information for', cardsToSend.length, 'cards.');
 
         // prepare e-mail content
         const html = `<html>
@@ -102,7 +103,7 @@ const emailer = new EMailer();
         This is an automated e-mail from <a href="https://github.com/nullromo/mtg-spoiler-notifier/">MTG Spoiler Notifier</a>.
         <br />
         The following cards have been added to Scryfall since the last notification was sent out.
-        ${cardsToSendOut
+        ${cardsToSend
             .map((card) => {
                 const imageSrc = Util.nameToCID(card.name);
                 return `<div>
@@ -120,7 +121,7 @@ const emailer = new EMailer();
         // eslint-disable-next-line no-await-in-loop
         await emailer.broadcast(
             html,
-            cardsToSendOut.map((card) => {
+            cardsToSend.map((card) => {
                 return {
                     cid: Util.nameToCID(card.name),
                     filename: `${card.name}.png`,
@@ -130,7 +131,7 @@ const emailer = new EMailer();
         );
 
         // remove the chunk of cards that already got sent out
-        newCards.splice(0, MAX_CARDS);
+        cardsToSend.splice(0, MAX_CARDS);
 
         // remove stored image files
         FileTools.removeImages();
