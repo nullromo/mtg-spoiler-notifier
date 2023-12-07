@@ -59,7 +59,7 @@ const emailer = new EMailer();
         FileTools.saveResults(allCards);
 
         // truncate the new card array so the rest of the code doesn't run
-        newCardNames.splice(0, 0);
+        newCardNames.splice(0, newCardNames.length);
     }
 
     // get data and images for the new cards
@@ -117,7 +117,7 @@ const emailer = new EMailer();
         );
 
         // remove the chunk of cards that already got sent out
-        newCards.splice(MAX_CARDS, newCards.length);
+        newCards.splice(0, MAX_CARDS);
 
         // remove stored image files
         FileTools.removeImages();
