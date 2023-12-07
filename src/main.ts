@@ -5,6 +5,10 @@ import { FileTools } from './fileTools';
 import { ScryfallTools } from './scryfallTools';
 import { Util } from './util';
 
+// if there are more than this many cards in the new cards list, then something
+// has gone wrong and the list of remembered cards should be reset
+const CARD_LIST_ERROR_THRESHOLD = 2000;
+
 // there is a deprecation warning that shows right now. This code can tell that
 // it's coming from nodemailer. It's a compatibility issue between the newer
 // Node.js version and the older nodemailer version. The solution is to wait
@@ -27,34 +31,48 @@ const emailer = new EMailer();
     // get current card list
     const allCards = await ScryfallTools.getCardCatalog();
 
-    // save card list
-    FileTools.saveResults(allCards);
-
     // remove n cards at random for testing purposes
     for (let n = 0; n < args.n; n += 1) {
         Util.removeRandom(previousResults);
     }
 
     // find new cards
-    const newCardNames = allCards
-        .filter((card) => {
-            // remove any card in the new card list that was already in the
-            // previous card list
-            return !previousResults.includes(card);
-        })
-        .map(async (name) => {
-            // get the card details and image
-            const card = await ScryfallTools.getCard(name);
+    const newCardNames = allCards.filter((card) => {
+        // remove any card in the new card list that was already in the
+        // previous card list
+        return !previousResults.includes(card);
+    });
 
-            // save the image
-            const imagePath = `images/${name}.png`;
-            fs.writeFileSync(imagePath, card.image);
+    // if there are way too many new cards, then some error occurred while
+    // trying to save the previous card list
+    if (newCardNames.length > CARD_LIST_ERROR_THRESHOLD) {
+        console.log(
+            'There were',
+            newCardNames.length,
+            'new cards, which is way too many to be real. Saving the list for next time.',
+        );
 
-            return { imagePath, name };
-        });
+        // just save the card list and try again next time
+        FileTools.saveResults(allCards);
+
+        // truncate the new card array so the rest of the code doesn't run
+        newCardNames.splice(0, 0);
+    }
+
+    // get data and images for the new cards
+    const newCardInfo = newCardNames.map(async (name) => {
+        // get the card details and image
+        const card = await ScryfallTools.getCard(name);
+
+        // save the image
+        const imagePath = `images/${name}.png`;
+        fs.writeFileSync(imagePath, card.image);
+
+        return { imagePath, name };
+    });
 
     // wait for all the card images to be saved
-    const newCards = await Promise.all(newCardNames);
+    const newCards = await Promise.all(newCardInfo);
 
     // report new cards
     if (newCards.length > 0) {
