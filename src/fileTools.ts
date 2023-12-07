@@ -17,4 +17,16 @@ export class FileTools {
     public static saveResults = (results: string[]) => {
         fs.writeFileSync('results.json', JSON.stringify(results));
     };
+
+    public static removeImages = () => {
+        const files = fs.readdirSync('./images');
+        files.forEach((file) => {
+            if (file.startsWith('.')) {
+                return;
+            }
+            const path = `./images/${file}`;
+            console.log(`Removing ${path}`);
+            fs.unlinkSync(path);
+        });
+    };
 }
