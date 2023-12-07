@@ -35,6 +35,7 @@ jobs:
 
       # download the artifacts from last run
       - run: |
+          set +e
           gh run download -n Results || true
           mv results.json previous-results.json
         env:
