@@ -131,7 +131,7 @@ const emailer = new EMailer();
         );
 
         // remove the chunk of cards that already got sent out
-        cardsToSend.splice(0, MAX_CARDS);
+        newCardNames.splice(0, MAX_CARDS);
 
         // remove stored image files
         FileTools.removeImages();
