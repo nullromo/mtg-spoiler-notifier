@@ -1,3 +1,5 @@
+import util from 'util';
+
 export class Util {
     // returns a promise that resolves an amount of milliseconds in the future
     public static readonly delay = async (amount: number) => {
@@ -15,5 +17,9 @@ export class Util {
     // Note: there may be edge cases to handle here
     public static nameToCID = (name: string) => {
         return name.replaceAll(/\s/g, '');
+    };
+
+    public static fullObject = (x: unknown) => {
+        return util.inspect(x, { depth: Infinity });
     };
 }

@@ -30,13 +30,23 @@ const emailer = new EMailer();
 
     // load previous card list
     const previousResults = FileTools.getPreviousResults();
+    console.log('There are', previousResults.length, 'known cards.');
 
     // get current card list
     const allCards = await ScryfallTools.getCardCatalog();
+    console.log('There are', allCards.length, 'total cards in Scryfall.');
+    console.log(
+        'There are',
+        allCards.length - previousResults.length,
+        'new cards to report.',
+    );
 
     // remove n cards at random for testing purposes
-    for (let n = 0; n < args.n; n += 1) {
-        Util.removeRandom(previousResults);
+    if (args.n > 0) {
+        console.log('Removing', args.n, 'random cards for testing purposes.');
+        for (let n = 0; n < args.n; n += 1) {
+            Util.removeRandom(previousResults);
+        }
     }
 
     // find new cards
@@ -45,6 +55,8 @@ const emailer = new EMailer();
         // previous card list
         return !previousResults.includes(card);
     });
+    console.log('Detected', newCardNames.length, 'new card names.');
+    console.log('New card names:', Util.fullObject(newCardNames));
 
     // if there are way too many new cards, then some error occurred while
     // trying to save the previous card list
@@ -76,6 +88,7 @@ const emailer = new EMailer();
 
     // wait for all the card images to be saved
     const newCards = await Promise.all(newCardInfo);
+    console.log('Got information for', newCards.length, 'cards.');
 
     // report new cards in chunks of MAX_CARDS at a time
     while (newCards.length > 0) {
@@ -139,4 +152,6 @@ const emailer = new EMailer();
 
         // close the e-mailer
         emailer.close();
+
+        console.log('\nDone.');
     });
