@@ -142,6 +142,9 @@ const emailer = new EMailer();
         await Util.delay(2000);
     }
 
+    // save card list after everything has been sent out
+    FileTools.saveResults(allCards);
+
     console.log('No more new cards to report.');
 })()
     .catch((error) => {
