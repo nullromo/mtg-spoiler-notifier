@@ -5,7 +5,10 @@ import { Util } from './util';
 const SCRYFALL_API_DELAY = 100;
 
 // incomplete type for Scryfall card data
-type ScryfallCard = { image_uris: { png: string } };
+type ScryfallCard = {
+    card_faces?: Array<{ image_uris: { png: string } }>;
+    image_uris?: { png: string };
+};
 
 // tools for getting data from Scryfall
 class ScryfallToolsClass {
@@ -41,11 +44,27 @@ class ScryfallToolsClass {
             `https://api.scryfall.com/cards/named?exact=${name}`,
         );
         await Util.delay(SCRYFALL_API_DELAY);
-        const image: { data: string } = await axios.get(
-            data.data.image_uris.png,
-            { responseType: 'arraybuffer' },
-        );
-        return { data: data.data, image: image.data };
+        const imagePromises: Array<Promise<{ data: string }>> = data.data
+            .image_uris
+            ? [
+                  axios.get(data.data.image_uris.png, {
+                      responseType: 'arraybuffer',
+                  }),
+              ]
+            : data.data.card_faces
+            ? data.data.card_faces.map(async (face) => {
+                  return axios.get(face.image_uris.png, {
+                      responseType: 'arraybuffer',
+                  });
+              })
+            : [];
+        const images = await Promise.all(imagePromises);
+        return {
+            data: data.data,
+            images: images.map((image) => {
+                return image.data;
+            }),
+        };
     };
 }
 
