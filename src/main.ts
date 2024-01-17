@@ -12,10 +12,10 @@ const CARD_LIST_ERROR_THRESHOLD = 2000;
 // restrict the maximum number of cards that can be sent at one time
 const MAX_CARDS = 20;
 
-// there is a deprecation warning that shows right now. This code can tell that
-// it's coming from nodemailer. It's a compatibility issue between the newer
-// Node.js version and the older nodemailer version. The solution is to wait
-// for a new version of nodemailer to be released
+// there is a deprecation warning that shows right now. This line of code can
+// show you that it's coming from nodemailer. It's a compatibility issue
+// between the newer Node.js version and the older nodemailer version. The
+// solution is to wait for a new version of nodemailer to be released
 //process.on('warning', (warning) => { console.log(warning.stack); });
 
 // create an e-mailer
@@ -81,7 +81,7 @@ const emailer = new EMailer();
         console.log('Will send out', cardNamesToSend.length, 'cards.');
 
         // get data and images for the new cards
-        const cardInfoToSent = cardNamesToSend.map(async (name) => {
+        const cardInfoToSend = cardNamesToSend.map(async (name) => {
             // get the card details and image
             const card = await ScryfallTools.getCard(name);
 
@@ -94,7 +94,7 @@ const emailer = new EMailer();
 
         // wait for all the card images to be saved
         // eslint-disable-next-line no-await-in-loop
-        const cardsToSend = await Promise.all(cardInfoToSent);
+        const cardsToSend = await Promise.all(cardInfoToSend);
         console.log('Got information for', cardsToSend.length, 'cards.');
 
         // prepare e-mail content
