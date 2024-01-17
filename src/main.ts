@@ -85,11 +85,19 @@ const emailer = new EMailer();
             // get the card details and image
             const card = await ScryfallTools.getCard(name);
 
-            // save the image
-            const imagePath = `images/${name}.png`;
-            fs.writeFileSync(imagePath, card.image);
+            // set up the image paths
+            const imagePaths = card.images.map((_, index) => {
+                return `images/${name.replaceAll(/\//g, 'SLASH')}${
+                    index > 0 ? `_face${index + 1}` : ''
+                }.png`;
+            });
 
-            return { imagePath, name };
+            // save the images
+            card.images.forEach((image, index) => {
+                fs.writeFileSync(imagePaths[index], image);
+            });
+
+            return { imagePaths, name };
         });
 
         // wait for all the card images to be saved
@@ -105,12 +113,16 @@ const emailer = new EMailer();
         The following cards have been added to Scryfall since the last notification was sent out.
         ${cardsToSend
             .map((card) => {
-                const imageSrc = Util.nameToCID(card.name);
-                return `<div>
+                return card.imagePaths
+                    .map((_, index) => {
+                        const imageSrc = Util.nameToCID(card.name);
+                        return `<div>
             ${card.name}
             <br />
-            <img src="cid:${imageSrc}" />
+            <img src="cid:${imageSrc}${index > 0 ? `_face${index + 1}` : ''}" />
         </div>`;
+                    })
+                    .join('\n        <br />\n        ');
             })
             .join('\n        <br />\n        ')}
     </div>
@@ -121,13 +133,19 @@ const emailer = new EMailer();
         // eslint-disable-next-line no-await-in-loop
         await emailer.broadcast(
             html,
-            cardsToSend.map((card) => {
-                return {
-                    cid: Util.nameToCID(card.name),
-                    filename: `${card.name}.png`,
-                    path: card.imagePath,
-                };
-            }),
+            Util.flattenArray(
+                cardsToSend.map((card) => {
+                    return card.imagePaths.map((imagePath, index) => {
+                        return {
+                            cid: Util.nameToCID(card.name),
+                            filename: `${card.name}${
+                                index > 0 ? `_face${index + 1}` : ''
+                            }.png`,
+                            path: imagePath,
+                        };
+                    });
+                }),
+            ),
         );
 
         // remove the chunk of cards that already got sent out

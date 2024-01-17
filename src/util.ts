@@ -22,4 +22,13 @@ export class Util {
     public static fullObject = (x: unknown) => {
         return util.inspect(x, { depth: Infinity });
     };
+
+    public static flattenArray = <T>(array: Array<T | T[]>) => {
+        return array.reduce<T[]>((result, item) => {
+            if (Array.isArray(item)) {
+                return [...result, ...item];
+            }
+            return [...result, item];
+        }, []);
+    };
 }
