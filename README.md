@@ -26,7 +26,7 @@ understand the risks associated.
 
 The account name is `mtgspoilernotifier@gmail.com`.
 
-## How to Get on the List
+## How To Get on the List
 
 To get added to the list, you can submit a pull request that adds your e-mail
 address to the [recipients list](./recipients.json). If you don't know how to do
