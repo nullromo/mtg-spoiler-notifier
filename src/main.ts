@@ -115,11 +115,11 @@ const emailer = new EMailer();
             .map((card) => {
                 return card.imagePaths
                     .map((_, index) => {
-                        const imageSrc = Util.nameToCID(card.name);
+                        const imageSrc = Util.nameToCID(card.name, index);
                         return `<div>
             ${card.name}
             <br />
-            <img src="cid:${imageSrc}${index > 0 ? `_face${index + 1}` : ''}" />
+            <img src="cid:${imageSrc}" />
         </div>`;
                     })
                     .join('\n        <br />\n        ');
@@ -142,7 +142,7 @@ const emailer = new EMailer();
                 cardsToSend.map((card) => {
                     return card.imagePaths.map((imagePath, index) => {
                         return {
-                            cid: Util.nameToCID(card.name),
+                            cid: Util.nameToCID(card.name, index),
                             filename: `${card.name}${
                                 index > 0 ? `_face${index + 1}` : ''
                             }.png`,

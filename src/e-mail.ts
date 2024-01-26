@@ -62,6 +62,12 @@ export class EMailer {
         text: string,
         attachments: AttachmentData[],
     ) => {
+        console.log(
+            'Broadcasting attachments with CIDs:',
+            attachments.map((attachment) => {
+                return attachment.cid;
+            }),
+        );
         return Promise.all(
             RECIPIENTS.map(async (recipient) => {
                 return this.sendEmail(subject, recipient, text, attachments);
