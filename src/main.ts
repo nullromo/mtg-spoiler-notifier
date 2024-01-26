@@ -132,6 +132,11 @@ const emailer = new EMailer();
         // send e-mail to all recipients
         // eslint-disable-next-line no-await-in-loop
         await emailer.broadcast(
+            `${
+                cardsToSend.length === 1
+                    ? '1 New Card'
+                    : `${cardsToSend.length} New Cards`
+            }! MTG Spoiler Notification ${new Date().toLocaleString()}`,
             html,
             Util.flattenArray(
                 cardsToSend.map((card) => {
