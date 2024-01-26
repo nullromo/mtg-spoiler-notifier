@@ -10,7 +10,7 @@ import { Util } from './util';
 const CARD_LIST_ERROR_THRESHOLD = 2000;
 
 // restrict the maximum number of cards that can be sent at one time
-const MAX_CARDS = 20;
+const MAX_CARDS = 5;
 
 // there is a deprecation warning that shows right now. This line of code can
 // show you that it's coming from nodemailer. It's a compatibility issue
