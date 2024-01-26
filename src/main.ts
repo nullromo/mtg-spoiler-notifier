@@ -110,14 +110,21 @@ const emailer = new EMailer();
     <div>
         This is an automated e-mail from <a href="https://github.com/nullromo/mtg-spoiler-notifier/">MTG Spoiler Notifier</a>.
         <br />
-        The following cards have been added to Scryfall since the last notification was sent out.
+        <br />
+        The following ${
+            cardsToSend.length === 1
+                ? 'card has'
+                : `${cardsToSend.length} cards have`
+        } been added to Scryfall since the last notification was sent out.
+        <br />
+        <br />
         ${cardsToSend
             .map((card) => {
                 return card.imagePaths
                     .map((_, index) => {
                         const imageSrc = Util.nameToCID(card.name, index);
                         return `<div>
-            ${card.name}
+            ${card.name}${index > 0 ? ` (face ${index + 1})` : ''}
             <br />
             <img src="cid:${imageSrc}" />
         </div>`;
