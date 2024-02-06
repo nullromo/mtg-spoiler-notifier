@@ -31,6 +31,7 @@ export class EMailer {
     }
 
     private readonly sendEmail = async (
+        subject: string,
         recipient: string,
         html: string,
         attachments: AttachmentData[],
@@ -41,7 +42,7 @@ export class EMailer {
                     attachments,
                     from: 'mtgspoilernotifier@gmail.com',
                     html,
-                    subject: `MTG Spoiler Notification ${new Date().toLocaleString()}`,
+                    subject,
                     textEncoding: 'base64',
                     to: recipient,
                 },
@@ -59,12 +60,19 @@ export class EMailer {
     };
 
     public readonly broadcast = async (
+        subject: string,
         text: string,
         attachments: AttachmentData[],
     ) => {
+        console.log(
+            'Broadcasting attachments with CIDs:',
+            attachments.map((attachment) => {
+                return attachment.cid;
+            }),
+        );
         return Promise.all(
             RECIPIENTS.map(async (recipient) => {
-                return this.sendEmail(recipient, text, attachments);
+                return this.sendEmail(subject, recipient, text, attachments);
             }),
         );
     };

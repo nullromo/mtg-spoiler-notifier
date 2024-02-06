@@ -10,7 +10,7 @@ import { Util } from './util';
 const CARD_LIST_ERROR_THRESHOLD = 2000;
 
 // restrict the maximum number of cards that can be sent at one time
-const MAX_CARDS = 20;
+const MAX_CARDS = 5;
 
 // there is a deprecation warning that shows right now. This line of code can
 // show you that it's coming from nodemailer. It's a compatibility issue
@@ -110,16 +110,23 @@ const emailer = new EMailer();
     <div>
         This is an automated e-mail from <a href="https://github.com/nullromo/mtg-spoiler-notifier/">MTG Spoiler Notifier</a>.
         <br />
-        The following cards have been added to Scryfall since the last notification was sent out.
+        <br />
+        The following ${
+            cardsToSend.length === 1
+                ? 'card has'
+                : `${cardsToSend.length} cards have`
+        } been added to Scryfall since the last notification was sent out.
+        <br />
+        <br />
         ${cardsToSend
             .map((card) => {
                 return card.imagePaths
                     .map((_, index) => {
-                        const imageSrc = Util.nameToCID(card.name);
+                        const imageSrc = Util.nameToCID(card.name, index);
                         return `<div>
-            ${card.name}
+            ${card.name}${index > 0 ? ` (face ${index + 1})` : ''}
             <br />
-            <img src="cid:${imageSrc}${index > 0 ? `_face${index + 1}` : ''}" />
+            <img src="cid:${imageSrc}" />
         </div>`;
                     })
                     .join('\n        <br />\n        ');
@@ -132,12 +139,17 @@ const emailer = new EMailer();
         // send e-mail to all recipients
         // eslint-disable-next-line no-await-in-loop
         await emailer.broadcast(
+            `${
+                cardsToSend.length === 1
+                    ? '1 New Card'
+                    : `${cardsToSend.length} New Cards`
+            }! MTG Spoiler Notification ${new Date().toLocaleString()}`,
             html,
             Util.flattenArray(
                 cardsToSend.map((card) => {
                     return card.imagePaths.map((imagePath, index) => {
                         return {
-                            cid: Util.nameToCID(card.name),
+                            cid: Util.nameToCID(card.name, index),
                             filename: `${card.name}${
                                 index > 0 ? `_face${index + 1}` : ''
                             }.png`,

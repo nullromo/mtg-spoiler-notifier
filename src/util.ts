@@ -15,8 +15,10 @@ export class Util {
 
     // convert a card name to an appropriate content ID for html purposes
     // Note: there may be edge cases to handle here
-    public static nameToCID = (name: string) => {
-        return name.replaceAll(/\s/g, '');
+    public static nameToCID = (name: string, index: number) => {
+        return `${name.replaceAll(/[\s/]/g, '')}${
+            index > 0 ? `_face${index + 1}` : ''
+        }`;
     };
 
     public static fullObject = (x: unknown) => {
