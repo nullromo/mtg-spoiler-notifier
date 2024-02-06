@@ -32,6 +32,9 @@ To get added to the list, you can submit a pull request that adds your e-mail
 address to the [recipients list](./recipients.json). If you don't know how to do
 that, you can send me a message and I will teach you how :)
 
+NOTE: the list uses `***AT***` instead of `@` to make the addresses less
+scrapable.
+
 ## Help!
 
 If you come across any kind of issue, please submit an issue on GitHub about it.
