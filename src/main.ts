@@ -1,4 +1,5 @@
 import fs from 'fs';
+import axios from 'axios';
 import yargs from 'yargs';
 import { EMailer } from './e-mail';
 import { FileTools } from './fileTools';
@@ -23,12 +24,15 @@ const emailer = new EMailer();
 
 // main program
 (async () => {
-    const secret = process.env.SECRET_TEST;
-    console.log(
-        `THE TEST SECRET (minus the first character) IS '${secret?.substring(
-            1,
-        )}'`,
-    );
+    const discordWebhookURI =
+        process.env.SECRET_QUOYLES_QUARTERS_DISCORD_WEBHOOK;
+    if (discordWebhookURI !== undefined) {
+        axios
+            .post(discordWebhookURI, {
+                content: 'Hello from GitHub Actions',
+            })
+            .catch(console.error);
+    }
 
     // parse command line arguments
     const args = await yargs
