@@ -43,7 +43,7 @@ jobs:
       # run the main script
       - name: Run main script
         env:
-          SECRET_TEST: ${{ secrets.SECRET_TEST }}
+          SECRET_GMAIL_APP_PASSWORD: ${{ SECRET_GMAIL_APP_PASSWORD }}
         run: npm run main
 
       # upload the new results
