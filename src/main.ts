@@ -175,6 +175,12 @@ const emailer = new EMailer();
             ),
         );
 
+        axios
+            .post(discordWebhookURIQuoylesQuarters, {
+                content: html,
+            })
+            .catch(console.error);
+
         // remove the chunk of cards that already got sent out
         newCardNames.splice(0, MAX_CARDS);
 
