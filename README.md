@@ -18,11 +18,14 @@ When this job runs, it performs the following steps:
 
 ## E-mail Credentials
 
-I created a dedicated Gmail account to send e-mails. The password is in plain
-text in the code, but the account is not linked to my personal information. If a
-malicious actor takes control of the account, I am not liable or responsible,
-and I have no way to reclaim the account. Any users of this application shall
-understand the risks associated.
+I created a dedicated Gmail account to send e-mails. I personally saved the
+account password privately. This repo accesses the account via an "app
+password," which is set up in the Google account. The password is saved in the
+repo as a secret that can be accessed in the GitHub CI via an environment
+variable. The account is not linked to my personal information. If a malicious
+actor takes control of the account, I am not liable or responsible, and I have
+no way to reclaim the account. Any users of this application shall understand
+the risks associated.
 
 The account name is `mtgspoilernotifier@gmail.com`.
 

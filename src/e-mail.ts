@@ -8,8 +8,6 @@ const RECIPIENTS = (
 });
 
 const CREDENTIALS = {
-    // old account password: 'mtg-spoiler-notifier69',
-    // old app password: 'exft ainp ldri jvfc',
     pass: process.env.SECRET_GMAIL_APP_PASSWORD,
     user: 'mtgspoilernotifier@gmail.com',
 };
