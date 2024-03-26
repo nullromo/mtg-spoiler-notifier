@@ -63,6 +63,13 @@ const emailer = new EMailer();
         // previous card list
         return !previousResults.includes(card);
     });
+
+    //
+    //////////////////////////////////////// temporary
+    newCardNames.push('Force of Will');
+    //////////////////////////////////////// temporary
+    //
+
     console.log('Detected', newCardNames.length, 'new card names.');
     console.log('New card names:', Util.fullObject(newCardNames));
 
