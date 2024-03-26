@@ -24,14 +24,11 @@ const emailer = new EMailer();
 
 // main program
 (async () => {
-    const discordWebhookURI =
+    // verify environment variables from GitHub
+    const discordWebhookURIQuoylesQuarters =
         process.env.SECRET_QUOYLES_QUARTERS_DISCORD_WEBHOOK;
-    if (discordWebhookURI !== undefined) {
-        axios
-            .post(discordWebhookURI, {
-                content: 'Hello from GitHub Actions',
-            })
-            .catch(console.error);
+    if (!discordWebhookURIQuoylesQuarters) {
+        throw new Error("Unable to get webhook for Quoyle's Quarters.");
     }
 
     // parse command line arguments
