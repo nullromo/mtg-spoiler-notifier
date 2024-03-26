@@ -151,6 +151,12 @@ const emailer = new EMailer();
 </html>`;
         console.log('Sending e-mail html:', html);
 
+        axios
+            .post(discordWebhookURIQuoylesQuarters, {
+                content: html,
+            })
+            .catch(console.error);
+
         // send e-mail to all recipients
         // eslint-disable-next-line no-await-in-loop
         await emailer.broadcast(
@@ -174,12 +180,6 @@ const emailer = new EMailer();
                 }),
             ),
         );
-
-        axios
-            .post(discordWebhookURIQuoylesQuarters, {
-                content: html,
-            })
-            .catch(console.error);
 
         // remove the chunk of cards that already got sent out
         newCardNames.splice(0, MAX_CARDS);
