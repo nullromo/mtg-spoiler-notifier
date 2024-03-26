@@ -42,7 +42,7 @@ jobs:
 
       # run the main script
       - name: Run main script
-        with:
+        env:
           SECRET_TEST: ${{ secrets.SECRET_TEST }}
         run: npm run main
 
