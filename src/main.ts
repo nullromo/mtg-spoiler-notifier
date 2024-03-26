@@ -24,7 +24,11 @@ const emailer = new EMailer();
 // main program
 (async () => {
     const secret = process.env.SECRET_TEST;
-    console.log(`THE TEST SECRET IS '${secret}'`);
+    console.log(
+        `THE TEST SECRET (minus the first character) IS '${secret?.substring(
+            1,
+        )}'`,
+    );
 
     // parse command line arguments
     const args = await yargs
