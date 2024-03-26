@@ -22,6 +22,82 @@ const MAX_CARDS = 5;
 // create an e-mailer
 const emailer = new EMailer();
 
+const makeSubject = (cardsToSend: unknown[]) => {
+    return `${
+        cardsToSend.length === 1
+            ? '1 New Card'
+            : `${cardsToSend.length} New Cards`
+    }! MTG Spoiler Notification ${new Date().toLocaleString()}`;
+};
+
+const formatAndSendEmails = async (
+    cardsToSend: Array<{ imagePaths: string[]; name: string }>,
+) => {
+    // prepare e-mail content
+    const html = `<html>
+    <div>
+        This is an automated e-mail from <a href="https://github.com/nullromo/mtg-spoiler-notifier/">MTG Spoiler Notifier</a>.
+        <br />
+        <br />
+        The following ${
+            cardsToSend.length === 1
+                ? 'card has'
+                : `${cardsToSend.length} cards have`
+        } been added to Scryfall since the last notification was sent out.
+        <br />
+        <br />
+        ${cardsToSend
+            .map((card) => {
+                return card.imagePaths
+                    .map((_, index) => {
+                        const imageSrc = Util.nameToCID(card.name, index);
+                        return `<div>
+            ${card.name}${index > 0 ? ` (face ${index + 1})` : ''}
+            <br />
+            <img src="cid:${imageSrc}" />
+        </div>`;
+                    })
+                    .join('\n        <br />\n        ');
+            })
+            .join('\n        <br />\n        ')}
+    </div>
+</html>`;
+    console.log('Sending e-mail html:', html);
+
+    // send e-mail to all recipients
+    await emailer.broadcast(
+        makeSubject(cardsToSend),
+        html,
+        Util.flattenArray(
+            cardsToSend.map((card) => {
+                return card.imagePaths.map((imagePath, index) => {
+                    return {
+                        cid: Util.nameToCID(card.name, index),
+                        filename: `${card.name}${
+                            index > 0 ? `_face${index + 1}` : ''
+                        }.png`,
+                        path: imagePath,
+                    };
+                });
+            }),
+        ),
+    );
+};
+
+const formatAndSendDiscordMessages = (
+    discordURIs: string[],
+    cardsToSend: Array<{ imagePaths: string[]; name: string }>,
+) => {
+    const content = `${makeSubject(cardsToSend)}\n${cardsToSend.map(
+        (cardInfo) => {
+            return cardInfo.name;
+        },
+    )}`;
+    discordURIs.forEach((uri) => {
+        axios.post(uri, { content }).catch(console.error);
+    });
+};
+
 // main program
 (async () => {
     // verify environment variables from GitHub
@@ -120,66 +196,13 @@ const emailer = new EMailer();
         const cardsToSend = await Promise.all(cardInfoToSend);
         console.log('Got information for', cardsToSend.length, 'cards.');
 
-        // prepare e-mail content
-        const html = `<html>
-    <div>
-        This is an automated e-mail from <a href="https://github.com/nullromo/mtg-spoiler-notifier/">MTG Spoiler Notifier</a>.
-        <br />
-        <br />
-        The following ${
-            cardsToSend.length === 1
-                ? 'card has'
-                : `${cardsToSend.length} cards have`
-        } been added to Scryfall since the last notification was sent out.
-        <br />
-        <br />
-        ${cardsToSend
-            .map((card) => {
-                return card.imagePaths
-                    .map((_, index) => {
-                        const imageSrc = Util.nameToCID(card.name, index);
-                        return `<div>
-            ${card.name}${index > 0 ? ` (face ${index + 1})` : ''}
-            <br />
-            <img src="cid:${imageSrc}" />
-        </div>`;
-                    })
-                    .join('\n        <br />\n        ');
-            })
-            .join('\n        <br />\n        ')}
-    </div>
-</html>`;
-        console.log('Sending e-mail html:', html);
-
-        axios
-            .post(discordWebhookURIQuoylesQuarters, {
-                content: html,
-            })
-            .catch(console.error);
-
-        // send e-mail to all recipients
-        // eslint-disable-next-line no-await-in-loop
-        await emailer.broadcast(
-            `${
-                cardsToSend.length === 1
-                    ? '1 New Card'
-                    : `${cardsToSend.length} New Cards`
-            }! MTG Spoiler Notification ${new Date().toLocaleString()}`,
-            html,
-            Util.flattenArray(
-                cardsToSend.map((card) => {
-                    return card.imagePaths.map((imagePath, index) => {
-                        return {
-                            cid: Util.nameToCID(card.name, index),
-                            filename: `${card.name}${
-                                index > 0 ? `_face${index + 1}` : ''
-                            }.png`,
-                            path: imagePath,
-                        };
-                    });
-                }),
-            ),
+        formatAndSendDiscordMessages(
+            [discordWebhookURIQuoylesQuarters],
+            cardsToSend,
         );
+
+        // eslint-disable-next-line no-await-in-loop
+        await formatAndSendEmails(cardsToSend);
 
         // remove the chunk of cards that already got sent out
         newCardNames.splice(0, MAX_CARDS);
