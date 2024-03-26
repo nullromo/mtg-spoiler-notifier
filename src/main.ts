@@ -23,6 +23,9 @@ const emailer = new EMailer();
 
 // main program
 (async () => {
+    const secret = process.env.SECRET_TEST;
+    console.log(`THE TEST SECRET IS '${secret}'`);
+
     // parse command line arguments
     const args = await yargs
         .option('n', { alias: 'number-to-remove', default: 0, type: 'number' })

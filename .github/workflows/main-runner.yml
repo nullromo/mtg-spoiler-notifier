@@ -42,6 +42,8 @@ jobs:
 
       # run the main script
       - name: Run main script
+        with:
+          SECRET_TEST: ${{ secrets.SECRET_TEST }}
         run: npm run main
 
       # upload the new results
