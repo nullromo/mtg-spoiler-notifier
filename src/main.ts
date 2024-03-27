@@ -85,6 +85,7 @@ const formatAndSendEmails = async (
 };
 
 let discordWebhookURIQuoylesQuarters = '';
+let discordWebhookURIEastBayMagic = '';
 
 const formatAndSendDiscordMessages = (
     cardsToSend: Array<{ imageWebURIs: string[]; name: string }>,
@@ -113,6 +114,11 @@ const formatAndSendDiscordMessages = (
         process.env.SECRET_QUOYLES_QUARTERS_DISCORD_WEBHOOK ?? '';
     if (discordWebhookURIQuoylesQuarters === '') {
         throw new Error("Unable to get webhook for Quoyle's Quarters.");
+    }
+    discordWebhookURIEastBayMagic =
+        process.env.SECRET_EAST_BAY_MAGIC_DISCORD_WEBHOOK ?? '';
+    if (discordWebhookURIEastBayMagic === '') {
+        throw new Error('Unable to get webhook for East Bay Magic.');
     }
 
     // parse command line arguments

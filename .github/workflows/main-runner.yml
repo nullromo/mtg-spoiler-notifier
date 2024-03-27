@@ -45,6 +45,7 @@ jobs:
         env:
           SECRET_GMAIL_APP_PASSWORD: ${{ secrets.SECRET_GMAIL_APP_PASSWORD }}
           SECRET_QUOYLES_QUARTERS_DISCORD_WEBHOOK: ${{ secrets.SECRET_QUOYLES_QUARTERS_DISCORD_WEBHOOK }}
+          SECRET_EAST_BAY_MAGIC_DISCORD_WEBHOOK: ${{ secrets.SECRET_EAST_BAY_MAGIC_DISCORD_WEBHOOK }}
         run: npm run main
 
       # upload the new results
