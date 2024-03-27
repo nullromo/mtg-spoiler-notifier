@@ -86,7 +86,7 @@ const formatAndSendEmails = async (
 
 const formatAndSendDiscordMessages = (
     discordURIs: string[],
-    cardsToSend: Array<{ imagePaths: string[]; name: string }>,
+    cardsToSend: Array<{ imageWebURIs: string[]; name: string }>,
 ) => {
     const content = `${makeSubject(cardsToSend)}\n${cardsToSend.map(
         (cardInfo) => {
@@ -94,7 +94,7 @@ const formatAndSendDiscordMessages = (
         },
     )}`;
     const embeds = cardsToSend.flatMap((cardInfo) => {
-        return cardInfo.imagePaths.map((path) => {
+        return cardInfo.imageWebURIs.map((path) => {
             return { image: { url: path } };
         });
     });
@@ -194,7 +194,17 @@ const formatAndSendDiscordMessages = (
                 fs.writeFileSync(imagePaths[index], image);
             });
 
-            return { imagePaths, name };
+            return {
+                imagePaths,
+                imageWebURIs: card.data.image_uris
+                    ? [card.data.image_uris.png]
+                    : card.data.card_faces
+                    ? card.data.card_faces.map((face) => {
+                          return face.image_uris.png;
+                      })
+                    : [],
+                name,
+            };
         });
 
         // wait for all the card images to be saved
