@@ -84,31 +84,30 @@ const formatAndSendEmails = async (
     );
 };
 
+let discordWebhookURIQuoylesQuarters = '';
+
 const formatAndSendDiscordMessages = (
-    discordURIs: string[],
     cardsToSend: Array<{ imageWebURIs: string[]; name: string }>,
 ) => {
-    const content = `${makeSubject(cardsToSend)}\n${cardsToSend.map(
-        (cardInfo) => {
-            return cardInfo.name;
-        },
-    )}`;
+    const content = `${makeSubject(cardsToSend)}\n${cardsToSend.join('\n')}`;
     const embeds = cardsToSend.flatMap((cardInfo) => {
         return cardInfo.imageWebURIs.map((path) => {
             return { image: { url: path } };
         });
     });
-    discordURIs.forEach((uri) => {
-        axios.post(uri, { content, embeds }).catch(console.error);
-    });
+    const sendDiscordMessage = (serverName: string, serverURI: string) => {
+        console.log(`Sending discord message to ${serverName}`);
+        axios.post(serverURI, { content, embeds }).catch(console.error);
+    };
+    sendDiscordMessage("Quoyle's Quarters", discordWebhookURIQuoylesQuarters);
 };
 
 // main program
 (async () => {
     // verify environment variables from GitHub
-    const discordWebhookURIQuoylesQuarters =
-        process.env.SECRET_QUOYLES_QUARTERS_DISCORD_WEBHOOK;
-    if (!discordWebhookURIQuoylesQuarters) {
+    discordWebhookURIQuoylesQuarters =
+        process.env.SECRET_QUOYLES_QUARTERS_DISCORD_WEBHOOK ?? '';
+    if (discordWebhookURIQuoylesQuarters === '') {
         throw new Error("Unable to get webhook for Quoyle's Quarters.");
     }
 
@@ -213,10 +212,7 @@ const formatAndSendDiscordMessages = (
         console.log('Got information for', cardsToSend.length, 'cards.');
 
         // send out notifications over discord
-        formatAndSendDiscordMessages(
-            [discordWebhookURIQuoylesQuarters],
-            cardsToSend,
-        );
+        formatAndSendDiscordMessages(cardsToSend);
 
         // send out notifications over e-mail
         // eslint-disable-next-line no-await-in-loop
