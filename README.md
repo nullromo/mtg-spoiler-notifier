@@ -1,6 +1,6 @@
 # mtg-spoiler-notifier
 
-Detects new cards uploaded to scryfall.com and sends e-mail updates.
+Detects new cards uploaded to scryfall.com and sends e-mail and Discord updates.
 
 ## How it Works
 
@@ -14,6 +14,9 @@ When this job runs, it performs the following steps:
     1. If there are new cards, generate an e-mail containing the names and
        images of the new cards and broadcast it out to all addresses in the
        [recipients list](./recipients.json).
+    1. If there are new cards, generate a Discord message containing the names
+       and images of the new cards and broadcast it out to the applicable
+       Discord channels.
 1. Save the list of all cards for the next run to look at.
 
 ## E-mail Credentials
@@ -29,6 +32,12 @@ the risks associated.
 
 The account name is `mtgspoilernotifier@gmail.com`.
 
+## Discord Credentials
+
+To get updates in Discord, a Discord webhook needs to be set up for a channel.
+mtg-spoiler-notifier will POST to the webhook to send a message in that Discord
+channel. The webhooks are stored as secrets in this repo.
+
 ## How To Get on the List
 
 To get added to the list, you can submit a pull request that adds your e-mail
@@ -37,6 +46,9 @@ that, you can send me a message and I will teach you how :)
 
 NOTE: the list uses `***AT***` instead of `@` to make the addresses less
 scrapable.
+
+If you want your Discord channel to be subscribed, please let me know. The
+current setup requires me to manually add Discord channels.
 
 ## Help!
 
