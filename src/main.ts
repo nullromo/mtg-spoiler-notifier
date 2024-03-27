@@ -93,7 +93,11 @@ const formatAndSendDiscordMessages = (
             return cardInfo.name;
         },
     )}`;
-    const embeds = [{ image: { url: 'https://i.imgur.com/ZGPxFN2.jpg' } }];
+    const embeds = cardsToSend.flatMap((cardInfo) => {
+        return cardInfo.imagePaths.map((path) => {
+            return { image: { url: path } };
+        });
+    });
     discordURIs.forEach((uri) => {
         axios.post(uri, { content, embeds }).catch(console.error);
     });
@@ -144,6 +148,7 @@ const formatAndSendDiscordMessages = (
     //
     //////////////////////////////////////// temporary
     newCardNames.push('Force of Will');
+    newCardNames.push('Teferi, Hero of Dominaria');
     //////////////////////////////////////// temporary
     //
 
