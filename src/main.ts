@@ -93,8 +93,9 @@ const formatAndSendDiscordMessages = (
             return cardInfo.name;
         },
     )}`;
+    const embeds = [{ image: { url: 'https://i.imgur.com/ZGPxFN2.jpg' } }];
     discordURIs.forEach((uri) => {
-        axios.post(uri, { content }).catch(console.error);
+        axios.post(uri, { content, embeds }).catch(console.error);
     });
 };
 
@@ -196,11 +197,13 @@ const formatAndSendDiscordMessages = (
         const cardsToSend = await Promise.all(cardInfoToSend);
         console.log('Got information for', cardsToSend.length, 'cards.');
 
+        // send out notifications over discord
         formatAndSendDiscordMessages(
             [discordWebhookURIQuoylesQuarters],
             cardsToSend,
         );
 
+        // send out notifications over e-mail
         // eslint-disable-next-line no-await-in-loop
         await formatAndSendEmails(cardsToSend);
 
