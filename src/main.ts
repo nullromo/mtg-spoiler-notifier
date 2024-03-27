@@ -105,6 +105,7 @@ const formatAndSendDiscordMessages = (
         axios.post(serverURI, { content, embeds }).catch(console.error);
     };
     sendDiscordMessage("Quoyle's Quarters", discordWebhookURIQuoylesQuarters);
+    sendDiscordMessage('East Bay Magic', discordWebhookURIEastBayMagic);
 };
 
 // main program
