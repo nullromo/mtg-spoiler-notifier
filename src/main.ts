@@ -89,7 +89,11 @@ let discordWebhookURIQuoylesQuarters = '';
 const formatAndSendDiscordMessages = (
     cardsToSend: Array<{ imageWebURIs: string[]; name: string }>,
 ) => {
-    const content = `${makeSubject(cardsToSend)}\n${cardsToSend.join('\n')}`;
+    const content = `${makeSubject(cardsToSend)}\n${cardsToSend
+        .map((card) => {
+            return card.name;
+        })
+        .join('\n')}`;
     const embeds = cardsToSend.flatMap((cardInfo) => {
         return cardInfo.imageWebURIs.map((path) => {
             return { image: { url: path } };
