@@ -148,13 +148,6 @@ const formatAndSendDiscordMessages = (
         return !previousResults.includes(card);
     });
 
-    //
-    //////////////////////////////////////// temporary
-    newCardNames.push('Teferi, Hero of Dominaria');
-    newCardNames.push('Hengegate Pathway // Mistgate Pathway');
-    //////////////////////////////////////// temporary
-    //
-
     console.log('Detected', newCardNames.length, 'new card names.');
     console.log('New card names:', Util.fullObject(newCardNames));
 
