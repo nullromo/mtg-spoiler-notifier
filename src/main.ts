@@ -154,6 +154,8 @@ const formatAndSendDiscordMessages = (
         return !previousResults.includes(card);
     });
 
+    newCardNames.push('Golgari Grave Troll');
+
     console.log('Detected', newCardNames.length, 'new card names.');
     console.log('New card names:', Util.fullObject(newCardNames));
 
