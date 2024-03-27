@@ -147,8 +147,8 @@ const formatAndSendDiscordMessages = (
 
     //
     //////////////////////////////////////// temporary
-    newCardNames.push('Force of Will');
     newCardNames.push('Teferi, Hero of Dominaria');
+    newCardNames.push('Hengegate Pathway // Mistgate Pathway');
     //////////////////////////////////////// temporary
     //
 
