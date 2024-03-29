@@ -109,10 +109,12 @@ const formatAndSendDiscordMessages = (
     cardsToSend.forEach((cardToSend) => {
         const content = `${makeSubject([cardToSend])}\n${cardToSend.name} - ${
             cardToSend.typeLine
-        } - ${cardToSend.manaCost}\n${cardToSend.oracleText}`.replaceAll(
-            /\{W\}/g,
-            ' :manaw: ',
-        );
+        } - ${cardToSend.manaCost}\n${cardToSend.oracleText}`
+            .replaceAll(/\{W\}/g, ':manaw:')
+            .replaceAll(/\{U\}/g, ':manau:')
+            .replaceAll(/\{B\}/g, ':manab:')
+            .replaceAll(/\{R\}/g, ':manar:')
+            .replaceAll(/\{G\}/g, ':manag:');
         const embeds = cardToSend.imageWebURIs.map((path) => {
             return { image: { url: path } };
         });
