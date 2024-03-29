@@ -111,7 +111,7 @@ const formatAndSendDiscordMessages = (
             cardToSend.typeLine
         } - ${cardToSend.manaCost}\n${cardToSend.oracleText}`.replaceAll(
             /\{W\}/g,
-            ':manaw:',
+            ' :manaw: ',
         );
         const embeds = cardToSend.imageWebURIs.map((path) => {
             return { image: { url: path } };
