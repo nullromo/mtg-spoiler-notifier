@@ -110,7 +110,7 @@ const formatAndSendDiscordMessages = (
         const content = `${makeSubject([cardToSend])}\n${cardToSend.name} - ${
             cardToSend.typeLine
         } - ${cardToSend.manaCost}\n${cardToSend.oracleText}`.replaceAll(
-            /\{W\}/,
+            /\{W\}/g,
             ':manaw:',
         );
         const embeds = cardToSend.imageWebURIs.map((path) => {
