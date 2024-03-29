@@ -35,6 +35,8 @@ const formatAndSendEmails = async (
         imagePaths: string[];
         name: string;
         oracleText: string;
+        manaCost: string;
+        typeLine: string;
     }>,
 ) => {
     // prepare e-mail content
@@ -57,6 +59,8 @@ const formatAndSendEmails = async (
                         const imageSrc = Util.nameToCID(card.name, index);
                         return `<div>
             ${card.name}${index > 0 ? ` (face ${index + 1})` : ''}
+            <br />
+            <div>${card.typeLine} - ${card.manaCost}</div>
             <br />
             <div>${card.oracleText}</div>
             <br />
@@ -98,12 +102,14 @@ const formatAndSendDiscordMessages = (
         imageWebURIs: string[];
         name: string;
         oracleText: string;
+        manaCost: string;
+        typeLine: string;
     }>,
 ) => {
     cardsToSend.forEach((cardToSend) => {
-        const content = `${makeSubject([cardToSend])}\n${cardToSend.name}\n${
-            cardToSend.oracleText
-        }`;
+        const content = `${makeSubject([cardToSend])}\n${cardToSend.name} - ${
+            cardToSend.typeLine
+        } - ${cardToSend.manaCost}\n${cardToSend.oracleText}`;
         const embeds = cardToSend.imageWebURIs.map((path) => {
             return { image: { url: path } };
         });
@@ -223,8 +229,10 @@ const formatAndSendDiscordMessages = (
                           return face.image_uris.png;
                       })
                     : [],
+                manaCost: card.data.mana_cost,
                 name,
                 oracleText: card.data.oracle_text,
+                typeLine: card.data.type_line,
             };
         });
 
