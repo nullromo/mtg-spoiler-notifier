@@ -97,6 +97,18 @@ const formatAndSendEmails = async (
 let discordWebhookURIQuoylesQuarters = '';
 let discordWebhookURIEastBayMagic = '';
 
+/* eslint-disable sort-keys */
+/* eslint-disable sort-keys-fix/sort-keys-fix */
+const emojiDictionary: Partial<Record<string, string>> = {
+    W: ':manaw:',
+    U: ':manau:',
+    B: ':manab:',
+    R: ':manar:',
+    G: ':manag:',
+};
+/* eslint-enable sort-keys */
+/* eslint-enable sort-keys-fix/sort-keys-fix */
+
 const formatAndSendDiscordMessages = (
     cardsToSend: Array<{
         imageWebURIs: string[];
@@ -109,12 +121,12 @@ const formatAndSendDiscordMessages = (
     cardsToSend.forEach((cardToSend) => {
         const content = `${makeSubject([cardToSend])}\n${cardToSend.name} - ${
             cardToSend.typeLine
-        } - ${cardToSend.manaCost}\n${cardToSend.oracleText}`
-            .replaceAll(/\{W\}/g, ':manaw:')
-            .replaceAll(/\{U\}/g, ':manau:')
-            .replaceAll(/\{B\}/g, ':manab:')
-            .replaceAll(/\{R\}/g, ':manar:')
-            .replaceAll(/\{G\}/g, ':manag:');
+        } - ${cardToSend.manaCost}\n${cardToSend.oracleText}`.replaceAll(
+            /(?<match>\{.*\})/g,
+            (text) => {
+                return emojiDictionary[text] ?? text;
+            },
+        );
         const embeds = cardToSend.imageWebURIs.map((path) => {
             return { image: { url: path } };
         });
