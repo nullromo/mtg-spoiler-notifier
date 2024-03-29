@@ -90,22 +90,23 @@ let discordWebhookURIEastBayMagic = '';
 const formatAndSendDiscordMessages = (
     cardsToSend: Array<{ imageWebURIs: string[]; name: string }>,
 ) => {
-    const content = `${makeSubject(cardsToSend)}\n${cardsToSend
-        .map((card) => {
-            return card.name;
-        })
-        .join('\n')}`;
-    const embeds = cardsToSend.flatMap((cardInfo) => {
-        return cardInfo.imageWebURIs.map((path) => {
-            return { image: { url: path } };
+    cardsToSend.forEach((cardToSend) => {
+        const content = `${makeSubject([cardToSend])}\n${cardToSend.name}`;
+        const embeds = cardsToSend.flatMap((cardInfo) => {
+            return cardInfo.imageWebURIs.map((path) => {
+                return { image: { url: path } };
+            });
         });
+        const sendDiscordMessage = (serverName: string, serverURI: string) => {
+            console.log(`Sending discord message to ${serverName}`);
+            axios.post(serverURI, { content, embeds }).catch(console.error);
+        };
+        sendDiscordMessage(
+            "Quoyle's Quarters",
+            discordWebhookURIQuoylesQuarters,
+        );
+        //sendDiscordMessage('East Bay Magic', discordWebhookURIEastBayMagic);
     });
-    const sendDiscordMessage = (serverName: string, serverURI: string) => {
-        console.log(`Sending discord message to ${serverName}`);
-        axios.post(serverURI, { content, embeds }).catch(console.error);
-    };
-    sendDiscordMessage("Quoyle's Quarters", discordWebhookURIQuoylesQuarters);
-    sendDiscordMessage('East Bay Magic', discordWebhookURIEastBayMagic);
 };
 
 // main program
