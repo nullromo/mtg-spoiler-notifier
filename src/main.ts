@@ -92,10 +92,8 @@ const formatAndSendDiscordMessages = (
 ) => {
     cardsToSend.forEach((cardToSend) => {
         const content = `${makeSubject([cardToSend])}\n${cardToSend.name}`;
-        const embeds = cardsToSend.flatMap((cardInfo) => {
-            return cardInfo.imageWebURIs.map((path) => {
-                return { image: { url: path } };
-            });
+        const embeds = cardToSend.imageWebURIs.map((path) => {
+            return { image: { url: path } };
         });
         const sendDiscordMessage = (serverName: string, serverURI: string) => {
             console.log(`Sending discord message to ${serverName}`);
