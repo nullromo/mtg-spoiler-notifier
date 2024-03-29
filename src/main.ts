@@ -156,6 +156,12 @@ const formatAndSendDiscordMessages = (
         return !previousResults.includes(card);
     });
 
+    // temporary ///////////////////////////////////////////
+    newCardNames.push('Boil');
+    newCardNames.push('Opt');
+    newCardNames.push('Fork');
+    // temporary ///////////////////////////////////////////
+
     console.log('Detected', newCardNames.length, 'new card names.');
     console.log('New card names:', Util.fullObject(newCardNames));
 
