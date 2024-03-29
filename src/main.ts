@@ -31,7 +31,11 @@ const makeSubject = (cardsToSend: unknown[]) => {
 };
 
 const formatAndSendEmails = async (
-    cardsToSend: Array<{ imagePaths: string[]; name: string }>,
+    cardsToSend: Array<{
+        imagePaths: string[];
+        name: string;
+        oracleText: string;
+    }>,
 ) => {
     // prepare e-mail content
     const html = `<html>
@@ -53,6 +57,8 @@ const formatAndSendEmails = async (
                         const imageSrc = Util.nameToCID(card.name, index);
                         return `<div>
             ${card.name}${index > 0 ? ` (face ${index + 1})` : ''}
+            <br />
+            <div>${card.oracleText}</div>
             <br />
             <img src="cid:${imageSrc}" />
         </div>`;
@@ -88,10 +94,16 @@ let discordWebhookURIQuoylesQuarters = '';
 let discordWebhookURIEastBayMagic = '';
 
 const formatAndSendDiscordMessages = (
-    cardsToSend: Array<{ imageWebURIs: string[]; name: string }>,
+    cardsToSend: Array<{
+        imageWebURIs: string[];
+        name: string;
+        oracleText: string;
+    }>,
 ) => {
     cardsToSend.forEach((cardToSend) => {
-        const content = `${makeSubject([cardToSend])}\n${cardToSend.name}`;
+        const content = `${makeSubject([cardToSend])}\n${cardToSend.name}\n${
+            cardToSend.oracleText
+        }`;
         const embeds = cardToSend.imageWebURIs.map((path) => {
             return { image: { url: path } };
         });
@@ -212,6 +224,7 @@ const formatAndSendDiscordMessages = (
                       })
                     : [],
                 name,
+                oracleText: card.data.oracle_text,
             };
         });
 
