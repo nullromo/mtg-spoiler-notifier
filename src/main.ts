@@ -109,7 +109,10 @@ const formatAndSendDiscordMessages = (
     cardsToSend.forEach((cardToSend) => {
         const content = `${makeSubject([cardToSend])}\n${cardToSend.name} - ${
             cardToSend.typeLine
-        } - ${cardToSend.manaCost}\n${cardToSend.oracleText}`;
+        } - ${cardToSend.manaCost}\n${cardToSend.oracleText}`.replaceAll(
+            /\{W\}/,
+            ':manaw:',
+        );
         const embeds = cardToSend.imageWebURIs.map((path) => {
             return { image: { url: path } };
         });
@@ -173,9 +176,7 @@ const formatAndSendDiscordMessages = (
     });
 
     // temporary ///////////////////////////////////////////
-    newCardNames.push('Boil');
-    newCardNames.push('Opt');
-    newCardNames.push('Fork');
+    newCardNames.push('Abzan Guide');
     // temporary ///////////////////////////////////////////
 
     console.log('Detected', newCardNames.length, 'new card names.');
