@@ -124,6 +124,7 @@ const formatAndSendDiscordMessages = (
         } - ${cardToSend.manaCost}\n${cardToSend.oracleText}`.replaceAll(
             /\{(?<match>.*)\}/g,
             (text) => {
+                console.log(`text is '${text}'`);
                 return emojiDictionary[text] ?? text;
             },
         );
