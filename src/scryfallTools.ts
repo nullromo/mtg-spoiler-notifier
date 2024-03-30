@@ -8,6 +8,9 @@ const SCRYFALL_API_DELAY = 100;
 type ScryfallCard = {
     card_faces?: Array<{ image_uris: { png: string } }>;
     image_uris?: { png: string };
+    oracle_text: string;
+    type_line: string;
+    mana_cost: string;
 };
 
 // tools for getting data from Scryfall

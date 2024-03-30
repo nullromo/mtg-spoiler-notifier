@@ -1,9 +1,12 @@
 import fs from 'fs';
 import axios from 'axios';
 import yargs from 'yargs';
+import type { DiscordServer } from './discordData';
+import { discordServers } from './discordData';
 import { EMailer } from './e-mail';
 import { FileTools } from './fileTools';
 import { ScryfallTools } from './scryfallTools';
+import { Symbols } from './symbols';
 import { Util } from './util';
 
 // if there are more than this many cards in the new cards list, then something
@@ -31,7 +34,13 @@ const makeSubject = (cardsToSend: unknown[]) => {
 };
 
 const formatAndSendEmails = async (
-    cardsToSend: Array<{ imagePaths: string[]; name: string }>,
+    cardsToSend: Array<{
+        imagePaths: string[];
+        name: string;
+        oracleText: string;
+        manaCost: string;
+        typeLine: string;
+    }>,
 ) => {
     // prepare e-mail content
     const html = `<html>
@@ -53,6 +62,14 @@ const formatAndSendEmails = async (
                         const imageSrc = Util.nameToCID(card.name, index);
                         return `<div>
             ${card.name}${index > 0 ? ` (face ${index + 1})` : ''}
+            <br />
+            <div>${card.typeLine} ${
+                            card.manaCost
+                                ? `${Symbols.dot} ${card.manaCost}`
+                                : ''
+                        }</div>
+            <br />
+            <div>${card.oracleText}</div>
             <br />
             <img src="cid:${imageSrc}" />
         </div>`;
@@ -84,44 +101,53 @@ const formatAndSendEmails = async (
     );
 };
 
-let discordWebhookURIQuoylesQuarters = '';
-let discordWebhookURIEastBayMagic = '';
-
 const formatAndSendDiscordMessages = (
-    cardsToSend: Array<{ imageWebURIs: string[]; name: string }>,
+    cardsToSend: Array<{
+        imageWebURIs: string[];
+        name: string;
+        oracleText: string;
+        manaCost: string;
+        typeLine: string;
+    }>,
 ) => {
-    const content = `${makeSubject(cardsToSend)}\n${cardsToSend
-        .map((card) => {
-            return card.name;
-        })
-        .join('\n')}`;
-    const embeds = cardsToSend.flatMap((cardInfo) => {
-        return cardInfo.imageWebURIs.map((path) => {
+    cardsToSend.forEach((cardToSend) => {
+        const content = `${makeSubject([cardToSend])}\n### ${
+            cardToSend.name
+        }\n${cardToSend.typeLine} ${
+            cardToSend.manaCost ? `${Symbols.dot} ${cardToSend.manaCost}` : ''
+        }\n${cardToSend.oracleText
+            // italicize reminder text
+            .replaceAll(/\(/g, '_(')
+            .replaceAll(/\)/g, ')_')}`;
+        const embeds = cardToSend.imageWebURIs.map((path) => {
             return { image: { url: path } };
         });
+        const sendDiscordMessage = (discordServer: DiscordServer) => {
+            console.log(`Sending discord message to ${discordServer.name}`);
+            axios
+                .post(discordServer.webhookURI, {
+                    // insert emoji
+                    content: content.replaceAll(
+                        /\{(?<match>.*?)\}/g,
+                        (text, group1: string) => {
+                            return (
+                                discordServer.emojiDictionary[group1] ?? text
+                            );
+                        },
+                    ),
+                    embeds,
+                })
+                .catch(console.error);
+        };
+
+        discordServers.forEach((discordServer) => {
+            sendDiscordMessage(discordServer);
+        });
     });
-    const sendDiscordMessage = (serverName: string, serverURI: string) => {
-        console.log(`Sending discord message to ${serverName}`);
-        axios.post(serverURI, { content, embeds }).catch(console.error);
-    };
-    sendDiscordMessage("Quoyle's Quarters", discordWebhookURIQuoylesQuarters);
-    sendDiscordMessage('East Bay Magic', discordWebhookURIEastBayMagic);
 };
 
 // main program
 (async () => {
-    // verify environment variables from GitHub
-    discordWebhookURIQuoylesQuarters =
-        process.env.SECRET_QUOYLES_QUARTERS_DISCORD_WEBHOOK ?? '';
-    if (discordWebhookURIQuoylesQuarters === '') {
-        throw new Error("Unable to get webhook for Quoyle's Quarters.");
-    }
-    discordWebhookURIEastBayMagic =
-        process.env.SECRET_EAST_BAY_MAGIC_DISCORD_WEBHOOK ?? '';
-    if (discordWebhookURIEastBayMagic === '') {
-        throw new Error('Unable to get webhook for East Bay Magic.');
-    }
-
     // parse command line arguments
     const args = await yargs
         .option('n', { alias: 'number-to-remove', default: 0, type: 'number' })
@@ -206,7 +232,10 @@ const formatAndSendDiscordMessages = (
                           return face.image_uris.png;
                       })
                     : [],
+                manaCost: card.data.mana_cost,
                 name,
+                oracleText: card.data.oracle_text,
+                typeLine: card.data.type_line,
             };
         });
 
