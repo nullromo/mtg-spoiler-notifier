@@ -1,35 +1,46 @@
-export enum DiscordServerName {
-    quoylesQuarters = "Quoyle's Quarters",
-    eastBayMagic = 'East Bay Magic',
+type EmojiDictionary = Partial<Record<string, string>>;
+
+export class DiscordServer {
+    public readonly name: string;
+
+    public readonly emojiDictionary: EmojiDictionary;
+
+    public readonly webhookURI: string;
+
+    public constructor(
+        name: string,
+        emojiDictionary: EmojiDictionary,
+        webhook: string,
+    ) {
+        // verify environment variable from GitHub
+        if (webhook === '') {
+            throw new Error(`Unable to get webhook for ${name}.`);
+        }
+        this.name = name;
+        this.emojiDictionary = emojiDictionary;
+        this.webhookURI = webhook;
+    }
 }
 
-export const DiscordData = (() => {
-    let discordWebhookURIQuoylesQuarters = '';
-    let discordWebhookURIEastBayMagic = '';
-
-    // verify environment variables from GitHub
-    discordWebhookURIQuoylesQuarters =
-        process.env.SECRET_QUOYLES_QUARTERS_DISCORD_WEBHOOK ?? '';
-    if (discordWebhookURIQuoylesQuarters === '') {
-        throw new Error("Unable to get webhook for Quoyle's Quarters.");
-    }
-    discordWebhookURIEastBayMagic =
-        process.env.SECRET_EAST_BAY_MAGIC_DISCORD_WEBHOOK ?? '';
-    if (discordWebhookURIEastBayMagic === '') {
-        throw new Error('Unable to get webhook for East Bay Magic.');
-    }
-
-    /* eslint-disable sort-keys */
-    /* eslint-disable sort-keys-fix/sort-keys-fix */
-    const emojiDictionary: Partial<
-        Record<DiscordServerName, Partial<Record<string, string>>>
-    > = {
-        [DiscordServerName.quoylesQuarters]: {
+export const discordServers = [
+    new DiscordServer(
+        "Quoyle's Quarters",
+        /* eslint-disable sort-keys */
+        /* eslint-disable sort-keys-fix/sort-keys-fix */
+        {
             // TODO: add the rest
             R: '<:manar:1223433670896128043>',
             3: '<:mana3:1223433640139165706>',
         },
-        [DiscordServerName.eastBayMagic]: {
+        /* eslint-enable sort-keys */
+        /* eslint-enable sort-keys-fix/sort-keys-fix */
+        process.env.SECRET_QUOYLES_QUARTERS_DISCORD_WEBHOOK ?? '',
+    ),
+    new DiscordServer(
+        'East Bay Magic',
+        /* eslint-disable sort-keys */
+        /* eslint-disable sort-keys-fix/sort-keys-fix */
+        {
             // TODO: add the rest
             W: '<:manaw:1223438189025562764>',
             U: '<:manau:1223438187654025408>',
@@ -53,13 +64,8 @@ export const DiscordData = (() => {
             S: '<:manas:1223438136529522761>',
             E: '<:manae:1223438307288027236>',
         },
-    };
-    /* eslint-enable sort-keys */
-    /* eslint-enable sort-keys-fix/sort-keys-fix */
-
-    return {
-        discordWebhookURIEastBayMagic,
-        discordWebhookURIQuoylesQuarters,
-        emojiDictionary,
-    };
-})();
+        /* eslint-enable sort-keys */
+        /* eslint-enable sort-keys-fix/sort-keys-fix */
+        process.env.SECRET_EAST_BAY_MAGIC_DISCORD_WEBHOOK ?? '',
+    ),
+];

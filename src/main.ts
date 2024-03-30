@@ -1,12 +1,13 @@
 import fs from 'fs';
 import axios from 'axios';
 import yargs from 'yargs';
+import type { DiscordServer } from './discordData';
+import { discordServers } from './discordData';
 import { EMailer } from './e-mail';
 import { FileTools } from './fileTools';
 import { ScryfallTools } from './scryfallTools';
-import { Util } from './util';
-import { DiscordData, DiscordServerName } from './discordData';
 import { Symbols } from './symbols';
+import { Util } from './util';
 
 // if there are more than this many cards in the new cards list, then something
 // has gone wrong and the list of remembered cards should be reset
@@ -117,21 +118,16 @@ const formatAndSendDiscordMessages = (
         const embeds = cardToSend.imageWebURIs.map((path) => {
             return { image: { url: path } };
         });
-        const sendDiscordMessage = (
-            serverName: DiscordServerName,
-            serverURI: string,
-        ) => {
-            console.log(`Sending discord message to ${serverName}`);
+        const sendDiscordMessage = (discordServer: DiscordServer) => {
+            console.log(`Sending discord message to ${discordServer.name}`);
             axios
-                .post(serverURI, {
+                .post(discordServer.webhookURI, {
                     // insert emoji
                     content: content.replaceAll(
                         /\{(?<match>.*?)\}/g,
                         (text, group1: string) => {
                             return (
-                                DiscordData.emojiDictionary[serverName]?.[
-                                    group1
-                                ] ?? text
+                                discordServer.emojiDictionary[group1] ?? text
                             );
                         },
                     ),
@@ -139,11 +135,17 @@ const formatAndSendDiscordMessages = (
                 })
                 .catch(console.error);
         };
-        sendDiscordMessage(
-            DiscordServerName.quoylesQuarters,
-            DiscordData.discordWebhookURIQuoylesQuarters,
-        );
-        //sendDiscordMessage(DiscordServerName.eastBayMagic, DiscordData.discordWebhookURIEastBayMagic);
+
+        //
+        ///////////////////////////////////////////////////
+        // temporary only send to the first one in the list
+        sendDiscordMessage(discordServers[0]);
+        ///////////////////////////////////////////////////
+        //
+
+        //discordServers.forEach((discordServer)=>{
+        //sendDiscordMessage(discordServer);
+        //});
     });
 };
 
@@ -182,9 +184,11 @@ const formatAndSendDiscordMessages = (
         return !previousResults.includes(card);
     });
 
+    //
     // temporary ///////////////////////////////////////////
     newCardNames.push('Jodah, Archmage Eternal');
     // temporary ///////////////////////////////////////////
+    //
 
     console.log('Detected', newCardNames.length, 'new card names.');
     console.log('New card names:', Util.fullObject(newCardNames));
