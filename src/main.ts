@@ -105,6 +105,7 @@ const emojiDictionary: Partial<Record<string, string>> = {
     B: ':manab:',
     R: '<:manar:1223433670896128043>',
     G: ':manag:',
+    3: '<:mana3:1223433640139165706>',
 };
 /* eslint-enable sort-keys */
 /* eslint-enable sort-keys-fix/sort-keys-fix */
