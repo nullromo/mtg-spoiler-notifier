@@ -122,7 +122,7 @@ const formatAndSendDiscordMessages = (
         const content = `${makeSubject([cardToSend])}\n${cardToSend.name} - ${
             cardToSend.typeLine
         } - ${cardToSend.manaCost}\n${cardToSend.oracleText}`.replaceAll(
-            /(?<match>\{.*\})/g,
+            /\{(?<match>.*)\}/g,
             (text) => {
                 return emojiDictionary[text] ?? text;
             },
