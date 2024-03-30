@@ -103,7 +103,7 @@ const emojiDictionary: Partial<Record<string, string>> = {
     W: ':manaw:',
     U: ':manau:',
     B: ':manab:',
-    R: ':manar:',
+    R: '<:manar:1223433670896128043>',
     G: ':manag:',
 };
 /* eslint-enable sort-keys */
@@ -121,14 +121,16 @@ const formatAndSendDiscordMessages = (
     cardsToSend.forEach((cardToSend) => {
         const content = `${makeSubject([cardToSend])}\n${cardToSend.name} - ${
             cardToSend.typeLine
-        } - ${cardToSend.manaCost}\n${cardToSend.oracleText}`.replaceAll(
-            /\{(?<match>.*?)\}/g,
-            (text, group1: string) => {
+        } - ${cardToSend.manaCost}\n${cardToSend.oracleText
+            // italicize reminder text
+            .replaceAll(/\(/g, '_(')
+            .replaceAll(/\)/g, ')_')}`
+            // insert emoji
+            .replaceAll(/\{(?<match>.*?)\}/g, (text, group1: string) => {
                 console.log(`text is '${text}'`);
                 console.log(`group1 is '${group1}'`);
                 return emojiDictionary[group1] ?? text;
-            },
-        );
+            });
         const embeds = cardToSend.imageWebURIs.map((path) => {
             return { image: { url: path } };
         });
