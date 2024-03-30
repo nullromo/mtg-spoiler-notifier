@@ -106,9 +106,9 @@ const formatAndSendDiscordMessages = (
     }>,
 ) => {
     cardsToSend.forEach((cardToSend) => {
-        const content = `${makeSubject([cardToSend])}\n${cardToSend.name} ${
-            Symbols.dot
-        } ${cardToSend.typeLine} ${Symbols.dot} ${
+        const content = `${makeSubject([cardToSend])}\n### ${
+            cardToSend.name
+        }\n${cardToSend.typeLine} ${Symbols.dot} ${
             cardToSend.manaCost
         }\n${cardToSend.oracleText
             // italicize reminder text
