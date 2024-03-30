@@ -123,9 +123,10 @@ const formatAndSendDiscordMessages = (
             cardToSend.typeLine
         } - ${cardToSend.manaCost}\n${cardToSend.oracleText}`.replaceAll(
             /\{(?<match>.*?)\}/g,
-            (text) => {
+            (text, group1: string) => {
                 console.log(`text is '${text}'`);
-                return emojiDictionary[text] ?? text;
+                console.log(`group1 is '${group1}'`);
+                return emojiDictionary[group1] ?? text;
             },
         );
         const embeds = cardToSend.imageWebURIs.map((path) => {
