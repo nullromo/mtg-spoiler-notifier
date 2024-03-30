@@ -191,6 +191,8 @@ const formatAndSendDiscordMessages = (
     newCardNames.push('Reaper King');
     newCardNames.push("Urza's Saga");
     newCardNames.push('Crackleburr');
+    newCardNames.push('Spellskite');
+    newCardNames.push('Tazri, Beacon of Unity');
     // temporary ///////////////////////////////////////////
     //
 
