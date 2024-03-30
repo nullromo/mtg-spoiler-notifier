@@ -140,16 +140,9 @@ const formatAndSendDiscordMessages = (
                 .catch(console.error);
         };
 
-        //
-        ///////////////////////////////////////////////////
-        // temporary only send to the first one in the list
-        sendDiscordMessage(discordServers[0]);
-        ///////////////////////////////////////////////////
-        //
-
-        //discordServers.forEach((discordServer)=>{
-        //sendDiscordMessage(discordServer);
-        //});
+        discordServers.forEach((discordServer) => {
+            sendDiscordMessage(discordServer);
+        });
     });
 };
 
@@ -187,18 +180,6 @@ const formatAndSendDiscordMessages = (
         // previous card list
         return !previousResults.includes(card);
     });
-
-    //
-    // temporary ///////////////////////////////////////////
-    newCardNames.push('Jodah, Archmage Eternal');
-    newCardNames.push('Aether Hub');
-    newCardNames.push('Reaper King');
-    newCardNames.push("Urza's Saga");
-    newCardNames.push('Crackleburr');
-    newCardNames.push('Spellskite');
-    newCardNames.push('Tazri, Beacon of Unity');
-    // temporary ///////////////////////////////////////////
-    //
 
     console.log('Detected', newCardNames.length, 'new card names.');
     console.log('New card names:', Util.fullObject(newCardNames));
