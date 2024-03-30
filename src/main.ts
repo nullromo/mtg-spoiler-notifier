@@ -187,6 +187,10 @@ const formatAndSendDiscordMessages = (
     //
     // temporary ///////////////////////////////////////////
     newCardNames.push('Jodah, Archmage Eternal');
+    newCardNames.push('Aether Hub');
+    newCardNames.push('Reaper King');
+    newCardNames.push("Urza's Saga");
+    newCardNames.push('Crackleburr');
     // temporary ///////////////////////////////////////////
     //
 
