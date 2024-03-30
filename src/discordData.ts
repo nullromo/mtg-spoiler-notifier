@@ -25,10 +25,12 @@ export const DiscordData = (() => {
         Record<DiscordServerName, Partial<Record<string, string>>>
     > = {
         [DiscordServerName.quoylesQuarters]: {
+            // TODO: add the rest
             R: '<:manar:1223433670896128043>',
             3: '<:mana3:1223433640139165706>',
         },
         [DiscordServerName.eastBayMagic]: {
+            // TODO: add the rest
             W: '<:manaw:1223438189025562764>',
             U: '<:manau:1223438187654025408>',
             B: '<:manab:1223438059488678029>',

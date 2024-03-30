@@ -61,7 +61,7 @@ const formatAndSendEmails = async (
                         return `<div>
             ${card.name}${index > 0 ? ` (face ${index + 1})` : ''}
             <br />
-            <div>${card.typeLine} - ${card.manaCost}</div>
+            <div>${card.typeLine} • ${card.manaCost}</div>
             <br />
             <div>${card.oracleText}</div>
             <br />
@@ -105,9 +105,9 @@ const formatAndSendDiscordMessages = (
     }>,
 ) => {
     cardsToSend.forEach((cardToSend) => {
-        const content = `${makeSubject([cardToSend])}\n${cardToSend.name} - ${
+        const content = `${makeSubject([cardToSend])}\n${cardToSend.name} • ${
             cardToSend.typeLine
-        } - ${cardToSend.manaCost}\n${cardToSend.oracleText
+        } • ${cardToSend.manaCost}\n${cardToSend.oracleText
             // italicize reminder text
             .replaceAll(/\(/g, '_(')
             .replaceAll(/\)/g, ')_')}`;
