@@ -6,6 +6,7 @@ import { FileTools } from './fileTools';
 import { ScryfallTools } from './scryfallTools';
 import { Util } from './util';
 import { DiscordData, DiscordServerName } from './discordData';
+import { Symbols } from './symbols';
 
 // if there are more than this many cards in the new cards list, then something
 // has gone wrong and the list of remembered cards should be reset
@@ -61,7 +62,7 @@ const formatAndSendEmails = async (
                         return `<div>
             ${card.name}${index > 0 ? ` (face ${index + 1})` : ''}
             <br />
-            <div>${card.typeLine} • ${card.manaCost}</div>
+            <div>${card.typeLine} ${Symbols.dot} ${card.manaCost}</div>
             <br />
             <div>${card.oracleText}</div>
             <br />
@@ -105,9 +106,11 @@ const formatAndSendDiscordMessages = (
     }>,
 ) => {
     cardsToSend.forEach((cardToSend) => {
-        const content = `${makeSubject([cardToSend])}\n${cardToSend.name} • ${
-            cardToSend.typeLine
-        } • ${cardToSend.manaCost}\n${cardToSend.oracleText
+        const content = `${makeSubject([cardToSend])}\n${cardToSend.name} ${
+            Symbols.dot
+        } ${cardToSend.typeLine} ${Symbols.dot} ${
+            cardToSend.manaCost
+        }\n${cardToSend.oracleText
             // italicize reminder text
             .replaceAll(/\(/g, '_(')
             .replaceAll(/\)/g, ')_')}`;
