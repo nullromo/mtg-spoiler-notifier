@@ -19,6 +19,26 @@ When this job runs, it performs the following steps:
        Discord channels.
 1. Save the list of all cards for the next run to look at.
 
+### Translation Notes
+
+Sometimes cards are spoiled with non-English images. When this happens, Scryfall
+will take one of two approaches.
+
+1. They upload the card image under a fake/joke name. The name has quotation
+   marks around it. Once they get the official card image and English text, they
+   replace it.
+1. They upload the card image under a translated name. This name may or may not
+   be the official name. Once they get the official card image and English text,
+   they replace it.
+
+In either case, the card's name and text, including reminder text, will usually
+be an unofficial translation. Fortunately, these unofficial translations are
+usually pretty good.
+
+If the card name changes between the initial upload and the official release,
+MTG Spoiler Notifier will re-send that card since it has a new name. MTG Spoiler
+Notifier will not know it's the same card because it has a new name.
+
 ## E-mail Credentials
 
 I created a dedicated Gmail account to send e-mails. I personally saved the
@@ -37,6 +57,12 @@ The account name is `mtgspoilernotifier@gmail.com`.
 To get updates in Discord, a Discord webhook needs to be set up for a channel.
 mtg-spoiler-notifier will POST to the webhook to send a message in that Discord
 channel. The webhooks are stored as secrets in this repo.
+
+### Discord Emoji Note
+
+In order to send messages with custom emoji on Discord, the full emoji IDs need
+to be used. Check `src/discordData.ts` for examples. These IDs can be obtained
+by sending a message like `\:emojiName:` in Discord.
 
 ## How To Get on the List
 
