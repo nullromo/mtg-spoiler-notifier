@@ -5,6 +5,7 @@ import { EMailer } from './e-mail';
 import { FileTools } from './fileTools';
 import { ScryfallTools } from './scryfallTools';
 import { Util } from './util';
+import { DiscordData, DiscordServerName } from './discordData';
 
 // if there are more than this many cards in the new cards list, then something
 // has gone wrong and the list of remembered cards should be reset
@@ -94,22 +95,6 @@ const formatAndSendEmails = async (
     );
 };
 
-let discordWebhookURIQuoylesQuarters = '';
-let discordWebhookURIEastBayMagic = '';
-
-/* eslint-disable sort-keys */
-/* eslint-disable sort-keys-fix/sort-keys-fix */
-const emojiDictionary: Partial<Record<string, string>> = {
-    W: ':manaw:',
-    U: ':manau:',
-    B: ':manab:',
-    R: '<:manar:1223433670896128043>',
-    G: ':manag:',
-    3: '<:mana3:1223433640139165706>',
-};
-/* eslint-enable sort-keys */
-/* eslint-enable sort-keys-fix/sort-keys-fix */
-
 const formatAndSendDiscordMessages = (
     cardsToSend: Array<{
         imageWebURIs: string[];
@@ -125,42 +110,42 @@ const formatAndSendDiscordMessages = (
         } - ${cardToSend.manaCost}\n${cardToSend.oracleText
             // italicize reminder text
             .replaceAll(/\(/g, '_(')
-            .replaceAll(/\)/g, ')_')}`
-            // insert emoji
-            .replaceAll(/\{(?<match>.*?)\}/g, (text, group1: string) => {
-                console.log(`text is '${text}'`);
-                console.log(`group1 is '${group1}'`);
-                return emojiDictionary[group1] ?? text;
-            });
+            .replaceAll(/\)/g, ')_')}`;
         const embeds = cardToSend.imageWebURIs.map((path) => {
             return { image: { url: path } };
         });
-        const sendDiscordMessage = (serverName: string, serverURI: string) => {
+        const sendDiscordMessage = (
+            serverName: DiscordServerName,
+            serverURI: string,
+        ) => {
             console.log(`Sending discord message to ${serverName}`);
-            axios.post(serverURI, { content, embeds }).catch(console.error);
+            axios
+                .post(serverURI, {
+                    // insert emoji
+                    content: content.replaceAll(
+                        /\{(?<match>.*?)\}/g,
+                        (text, group1: string) => {
+                            return (
+                                DiscordData.emojiDictionary[serverName]?.[
+                                    group1
+                                ] ?? text
+                            );
+                        },
+                    ),
+                    embeds,
+                })
+                .catch(console.error);
         };
         sendDiscordMessage(
-            "Quoyle's Quarters",
-            discordWebhookURIQuoylesQuarters,
+            DiscordServerName.quoylesQuarters,
+            DiscordData.discordWebhookURIQuoylesQuarters,
         );
-        //sendDiscordMessage('East Bay Magic', discordWebhookURIEastBayMagic);
+        //sendDiscordMessage(DiscordServerName.eastBayMagic, DiscordData.discordWebhookURIEastBayMagic);
     });
 };
 
 // main program
 (async () => {
-    // verify environment variables from GitHub
-    discordWebhookURIQuoylesQuarters =
-        process.env.SECRET_QUOYLES_QUARTERS_DISCORD_WEBHOOK ?? '';
-    if (discordWebhookURIQuoylesQuarters === '') {
-        throw new Error("Unable to get webhook for Quoyle's Quarters.");
-    }
-    discordWebhookURIEastBayMagic =
-        process.env.SECRET_EAST_BAY_MAGIC_DISCORD_WEBHOOK ?? '';
-    if (discordWebhookURIEastBayMagic === '') {
-        throw new Error('Unable to get webhook for East Bay Magic.');
-    }
-
     // parse command line arguments
     const args = await yargs
         .option('n', { alias: 'number-to-remove', default: 0, type: 'number' })
@@ -195,7 +180,7 @@ const formatAndSendDiscordMessages = (
     });
 
     // temporary ///////////////////////////////////////////
-    newCardNames.push('Abzan Guide');
+    newCardNames.push('Jodah, Archmage Eternal');
     // temporary ///////////////////////////////////////////
 
     console.log('Detected', newCardNames.length, 'new card names.');
