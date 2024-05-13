@@ -14,8 +14,18 @@ export class FileTools {
     };
 
     // save results for this run
-    public static saveResults = (results: string[]) => {
-        fs.writeFileSync('results.json', JSON.stringify(results, null, 4));
+    public static saveResults = (
+        previousResults: string[],
+        results: string[],
+    ) => {
+        fs.writeFileSync(
+            'results.json',
+            JSON.stringify(
+                [...new Set([...previousResults, ...results])],
+                null,
+                4,
+            ),
+        );
     };
 
     public static removeImages = () => {

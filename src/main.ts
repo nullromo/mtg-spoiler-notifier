@@ -194,7 +194,7 @@ const formatAndSendDiscordMessages = (
         );
 
         // just save the card list and try again next time
-        FileTools.saveResults(allCards);
+        FileTools.saveResults(previousResults, allCards);
 
         // truncate the new card array so the rest of the code doesn't run
         newCardNames.splice(0, newCardNames.length);
@@ -264,7 +264,7 @@ const formatAndSendDiscordMessages = (
     }
 
     // save card list after everything has been sent out
-    FileTools.saveResults(allCards);
+    FileTools.saveResults(previousResults, allCards);
 
     console.log('No more new cards to report.');
 })()
