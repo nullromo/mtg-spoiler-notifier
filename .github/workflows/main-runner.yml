@@ -1,9 +1,9 @@
 name: Run the main job
 
 on:
-  # run the action every 12 hours
+  # run the action every 1/2 hour
   schedule:
-    - cron: "* * * * *"
+    - cron: "*/30 * * * *"
   # allow this workflow to be run manually from the Actions tab
   workflow_dispatch:
 
