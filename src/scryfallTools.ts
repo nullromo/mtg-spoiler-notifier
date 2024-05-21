@@ -6,11 +6,15 @@ const SCRYFALL_API_DELAY = 100;
 
 // incomplete type for Scryfall card data
 type ScryfallCard = {
-    card_faces?: Array<{ image_uris: { png: string } }>;
+    card_faces?: Array<{
+        image_uris: { png: string };
+        oracle_text: string;
+        mana_cost: string;
+    }>;
     image_uris?: { png: string };
-    oracle_text: string;
+    oracle_text?: string;
     type_line: string;
-    mana_cost: string;
+    mana_cost?: string;
 };
 
 // tools for getting data from Scryfall

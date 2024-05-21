@@ -232,9 +232,13 @@ const formatAndSendDiscordMessages = (
                           return face.image_uris.png;
                       })
                     : [],
-                manaCost: card.data.mana_cost,
+                manaCost:
+                    card.data.mana_cost ??
+                    `${card.data.card_faces?.[0].mana_cost} // ${card.data.card_faces?.[0].mana_cost}`,
                 name,
-                oracleText: card.data.oracle_text,
+                oracleText:
+                    card.data.oracle_text ??
+                    `${card.data.card_faces?.[0].oracle_text} // ${card.data.card_faces?.[0].oracle_text}`,
                 typeLine: card.data.type_line,
             };
         });
