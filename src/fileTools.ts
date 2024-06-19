@@ -21,7 +21,7 @@ export class FileTools {
         fs.writeFileSync(
             'results.json',
             JSON.stringify(
-                [...new Set([...previousResults, ...results])],
+                [...new Set([...previousResults, ...results])].sort(),
                 null,
                 4,
             ),
