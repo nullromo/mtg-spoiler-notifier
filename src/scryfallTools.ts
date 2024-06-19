@@ -48,7 +48,9 @@ class ScryfallToolsClass {
     public readonly getCard = async (name: string) => {
         await Util.delay(SCRYFALL_API_DELAY);
         const data: { data: ScryfallCard } = await axios.get(
-            `https://api.scryfall.com/cards/named?exact=${name}`,
+            `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(
+                name,
+            )}`,
         );
         await Util.delay(SCRYFALL_API_DELAY);
         const imagePromises: Array<Promise<{ data: string }>> = data.data
