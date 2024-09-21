@@ -22,7 +22,7 @@ export class Util {
     };
 
     public static fullObject = (x: unknown) => {
-        return util.inspect(x, { depth: Infinity });
+        return util.inspect(x, { depth: Infinity, maxArrayLength: Infinity });
     };
 
     public static flattenArray = <T>(array: Array<T | T[]>) => {
