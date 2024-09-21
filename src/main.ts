@@ -14,7 +14,7 @@ import { Util } from './util';
 const CARD_LIST_ERROR_THRESHOLD = 2000;
 
 // restrict the maximum number of cards that can be sent at one time
-const MAX_CARDS = 1;
+const MAX_CARDS_PER_LOOP = 1;
 
 // there is a deprecation warning that shows right now. This line of code can
 // show you that it's coming from nodemailer. It's a compatibility issue
@@ -146,6 +146,11 @@ const formatAndSendDiscordMessages = (
     });
 };
 
+// track cards that had been sent out during previous runs
+const previousResults: string[] = [];
+// track cards that were successfully sent out
+const successfullySentCards: string[] = [];
+
 // main program
 (async () => {
     // parse command line arguments
@@ -154,14 +159,14 @@ const formatAndSendDiscordMessages = (
         .parse(process.argv);
 
     // load previous card list
-    const previousResults = FileTools.getPreviousResults();
+    previousResults.push(...FileTools.getPreviousResults());
     console.log('There are', previousResults.length, 'known cards.');
 
     // get current card list
     const allCards = await ScryfallTools.getCardCatalog();
     console.log('There are', allCards.length, 'total cards in Scryfall.');
     console.log(
-        'There are',
+        'There should be',
         allCards.length - previousResults.length,
         'new cards to report.',
     );
@@ -203,7 +208,7 @@ const formatAndSendDiscordMessages = (
     // report new cards in chunks of MAX_CARDS at a time
     while (newCardNames.length > 0) {
         // get a list of cards to send out on this loop
-        const cardNamesToSend = newCardNames.slice(0, MAX_CARDS);
+        const cardNamesToSend = newCardNames.slice(0, MAX_CARDS_PER_LOOP);
         console.log('Will send out', cardNamesToSend.length, 'cards.');
 
         // get data and images for the new cards
@@ -255,20 +260,19 @@ const formatAndSendDiscordMessages = (
         // eslint-disable-next-line no-await-in-loop
         await formatAndSendEmails(cardsToSend);
 
-        // remove the chunk of cards that already got sent out
-        newCardNames.splice(0, MAX_CARDS);
-
         // remove stored image files
         FileTools.removeImages();
+
+        // remove the chunk of cards that already got sent out and add them to
+        // the nextRunCards list
+        const finishedNewCards = newCardNames.splice(0, MAX_CARDS_PER_LOOP);
+        successfullySentCards.push(...finishedNewCards);
 
         // wait a little to avoid any kind of rate-limiting issues with the
         // e-mail. We're not in a rush here
         // eslint-disable-next-line no-await-in-loop
         await Util.delay(2000);
     }
-
-    // save card list after everything has been sent out
-    FileTools.saveResults(previousResults, allCards);
 
     console.log('No more new cards to report.');
 })()
@@ -277,6 +281,10 @@ const formatAndSendDiscordMessages = (
         throw error;
     })
     .finally(() => {
+        // save card list after everything has been sent out. The saved list is the
+        // previous list plus everything that was successfully sent out this run
+        FileTools.saveResults(previousResults, successfullySentCards);
+
         // remove any remaining stored image files
         FileTools.removeImages();
 
