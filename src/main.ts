@@ -279,12 +279,16 @@ const successfullySentCards: string[] = [];
         const cardsToSend = await Promise.all(cardInfoToSend);
         console.log('Got information for', cardsToSend.length, 'cards.');
 
-        // send out notifications over discord
-        formatAndSendDiscordMessages(cardsToSend);
-
-        // send out notifications over e-mail
+        // send out notifications over e-mail.
+        // NOTE: Do this BEFORE sending discord messages because the e-mailer
+        // has a daily limit. If we attempt the e-mail first and it fails, then
+        // it will fail before the discord messages are sent and we won't keep
+        // on sending extra discord messgaes all the time
         // eslint-disable-next-line no-await-in-loop
         await formatAndSendEmails(cardsToSend);
+
+        // send out notifications over discord
+        formatAndSendDiscordMessages(cardsToSend);
 
         // remove stored image files
         FileTools.removeImages();
