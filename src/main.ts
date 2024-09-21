@@ -16,6 +16,15 @@ const CARD_LIST_ERROR_THRESHOLD = 2000;
 // restrict the maximum number of cards that can be sent at one time
 const MAX_CARDS_PER_LOOP = 1;
 
+// restruct the maximum number of cards that can be processed in one run. There
+// are daily e-mail limits, meaning if the spoiler notifier gets too far
+// behind, it will have too large of a batch to process and it will fail every
+// single time. To prevent that, the progress should be "saved" every so often
+// so that some results can be "locked in" and the spoiler notifier won't get
+// permanently stuck with a big batch of updates that can never complete
+// successfully
+const MAX_CARDS_PER_RUN = 20;
+
 // there is a deprecation warning that shows right now. This line of code can
 // show you that it's coming from nodemailer. It's a compatibility issue
 // between the newer Node.js version and the older nodemailer version. The
@@ -205,8 +214,25 @@ const successfullySentCards: string[] = [];
         newCardNames.splice(0, newCardNames.length);
     }
 
+    let attemptNumber = 0;
+
     // report new cards in chunks of MAX_CARDS at a time
     while (newCardNames.length > 0) {
+        attemptNumber += 1;
+        if (attemptNumber > MAX_CARDS_PER_RUN) {
+            console.log(
+                `Maximum number of attempts (${MAX_CARDS_PER_RUN}) reached. Stopping now.`,
+            );
+            break;
+        } else {
+            console.log(
+                'Starting attempt number',
+                attemptNumber,
+                'of',
+                MAX_CARDS_PER_RUN,
+            );
+        }
+
         // get a list of cards to send out on this loop
         const cardNamesToSend = newCardNames.slice(0, MAX_CARDS_PER_LOOP);
         console.log('Will send out', cardNamesToSend.length, 'cards.');
