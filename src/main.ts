@@ -274,6 +274,7 @@ const formatAndSendDiscordMessages = (
 })()
     .catch((error) => {
         console.log(error);
+        throw error;
     })
     .finally(() => {
         // remove any remaining stored image files
