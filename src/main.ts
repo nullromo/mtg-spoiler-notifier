@@ -11,7 +11,7 @@ import { Util } from './util';
 
 // if there are more than this many cards in the new cards list, then something
 // has gone wrong and the list of remembered cards should be reset
-const CARD_LIST_ERROR_THRESHOLD = 2000;
+const CARD_LIST_ERROR_THRESHOLD = 10000;
 
 // restrict the maximum number of cards that can be sent at one time
 const MAX_CARDS_PER_LOOP = 1;
@@ -174,11 +174,13 @@ const successfullySentCards: string[] = [];
     // get current card list
     const allCards = await ScryfallTools.getCardCatalog();
     console.log('There are', allCards.length, 'total cards in Scryfall.');
-    console.log(
-        'There should be',
-        allCards.length - previousResults.length,
-        'new cards to report.',
-    );
+    // NOTE: sometimes cards are added under temporary names. These are later
+    // removed. However, we keep them around in the results list because
+    // sometimes they are not fixed quickly and we don't want to remove them
+    // from the results because then they will keep on generating
+    // notifications. For this reason, the length of previousResults can
+    // be longer than the length of allCards
+    console.log(previousResults.length, 'total cards have been reported.');
 
     // remove n cards at random for testing purposes
     if (args.n > 0) {
