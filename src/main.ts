@@ -34,10 +34,10 @@ const MAX_CARDS_PER_RUN = 20;
 // create an e-mailer
 const emailer = new EMailer();
 
-const makeSubject = (cardsToSend: unknown[]) => {
+const makeSubject = (cardsToSend: Array<{ name: string }>) => {
     return `${
         cardsToSend.length === 1
-            ? '1 New Card'
+            ? `New Card: [[${cardsToSend[0].name}]]`
             : `${cardsToSend.length} New Cards`
     }! MTG Spoiler Notification ${new Date().toLocaleString()}`;
 };
