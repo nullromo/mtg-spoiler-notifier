@@ -54,4 +54,11 @@ jobs:
         with:
           name: Results
           path: results.json
-
+  keepalive:
+    name: Keep GitHub Actions From Disabling Every 60 Days
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gautamkrishnar/keepalive-workflow@v2
