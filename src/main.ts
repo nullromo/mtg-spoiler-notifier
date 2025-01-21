@@ -160,6 +160,9 @@ const previousResults: string[] = [];
 // track cards that were successfully sent out
 const successfullySentCards: string[] = [];
 
+// track whether results file has been saved
+let savedResults = false;
+
 // main program
 (async () => {
     // parse command line arguments
@@ -211,6 +214,7 @@ const successfullySentCards: string[] = [];
 
         // just save the card list and try again next time
         FileTools.saveResults(previousResults, allCards);
+        savedResults = true;
 
         // truncate the new card array so the rest of the code doesn't run
         newCardNames.splice(0, newCardNames.length);
@@ -313,9 +317,13 @@ const successfullySentCards: string[] = [];
         throw error;
     })
     .finally(() => {
-        // save card list after everything has been sent out. The saved list is the
-        // previous list plus everything that was successfully sent out this run
-        FileTools.saveResults(previousResults, successfullySentCards);
+        if (!savedResults) {
+            // save card list after everything has been sent out. The saved
+            // list is the previous list plus everything that was successfully
+            // sent out this run. If the results were already saved earlier,
+            // this is skipped
+            FileTools.saveResults(previousResults, successfullySentCards);
+        }
 
         // remove any remaining stored image files
         FileTools.removeImages();
