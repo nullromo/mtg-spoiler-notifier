@@ -18,14 +18,13 @@ export class FileTools {
         previousResults: string[],
         results: string[],
     ) => {
-        fs.writeFileSync(
-            'results.json',
-            JSON.stringify(
-                [...new Set([...previousResults, ...results])].sort(),
-                null,
-                4,
-            ),
+        const resultsFileContents = JSON.stringify(
+            [...new Set([...previousResults, ...results])].sort(),
+            null,
+            4,
         );
+        console.log('Writing results file contents:', resultsFileContents);
+        fs.writeFileSync('results.json', resultsFileContents);
     };
 
     public static removeImages = () => {
