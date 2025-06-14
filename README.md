@@ -80,4 +80,4 @@ current setup requires me to manually add Discord channels.
 
 If you come across any kind of issue, please submit an issue on GitHub about it.
 If you don't know how to do that, you can send me a message and I will show you
-how :)
+how :-)
