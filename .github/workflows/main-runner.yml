@@ -14,16 +14,16 @@ jobs:
     #permissions:
       #actions: write
     #steps:
-      #- uses: actions/checkout@v4
+      #- uses: actions/checkout@v6
       #- uses: gautamkrishnar/keepalive-workflow@v2
   run:
     runs-on: ubuntu-latest
     steps:
       # git checkout
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # install Node.js
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 18
 
@@ -58,7 +58,7 @@ jobs:
 
       # upload the new results
       - name: Upload results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Results
           path: results.json
