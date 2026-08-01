@@ -155,6 +155,54 @@ const formatAndSendDiscordMessages = (
     });
 };
 
+// everything needed to send one card's notifications, with that card's images
+// already downloaded to disk
+type CardToSend = {
+    imagePaths: string[];
+    imageWebURIs: string[];
+    manaCost: string;
+    name: string;
+    oracleText: string;
+    typeLine: string;
+};
+
+// fetch a single card's data and images from Scryfall and save the images
+const resolveCard = async (name: string): Promise<CardToSend> => {
+    // get the card details and image
+    const card = await ScryfallTools.getCard(name);
+
+    // set up the image paths
+    const imagePaths = card.images.map((_, index) => {
+        return `images/${name.replaceAll(/\//g, 'SLASH')}${
+            index > 0 ? `_face${index + 1}` : ''
+        }.png`;
+    });
+
+    // save the images
+    card.images.forEach((image, index) => {
+        fs.writeFileSync(imagePaths[index], image);
+    });
+
+    return {
+        imagePaths,
+        imageWebURIs: card.data.image_uris
+            ? [card.data.image_uris.png]
+            : card.data.card_faces
+            ? card.data.card_faces.map((face) => {
+                  return face.image_uris.png;
+              })
+            : [],
+        manaCost:
+            card.data.mana_cost ??
+            `${card.data.card_faces?.[0].mana_cost} // ${card.data.card_faces?.[1].mana_cost}`,
+        name,
+        oracleText:
+            card.data.oracle_text ??
+            `${card.data.card_faces?.[0].oracle_text} // ${card.data.card_faces?.[1].oracle_text}`,
+        typeLine: card.data.type_line,
+    };
+};
+
 // track cards that had been sent out during previous runs
 const previousResults: string[] = [];
 // track cards that were successfully sent out
@@ -220,70 +268,52 @@ let savedResults = false;
         newCardNames.splice(0, newCardNames.length);
     }
 
-    let attemptNumber = 0;
+    // PHASE 1: fetch the data and images for every card BEFORE sending
+    // anything out. A card that cannot be fetched is skipped: it is neither
+    // sent nor recorded as sent, so it gets retried on the next run.
+    // Previously a single unfetchable name (a catalog entry with no card
+    // behind it, like "Wargling") threw partway through sending, which
+    // aborted the whole run. That made the process exit non-zero, which meant
+    // CI never uploaded the results file, which meant every card already sent
+    // that run got sent again on the next run, forever. See issue #8.
+    const cardNamesThisRun = newCardNames.slice(0, MAX_CARDS_PER_RUN);
+    console.log('Will look up', cardNamesThisRun.length, 'cards.');
 
-    // report new cards in chunks of MAX_CARDS at a time
-    while (newCardNames.length > 0) {
-        attemptNumber += 1;
-        if (attemptNumber > MAX_CARDS_PER_RUN) {
-            console.log(
-                `Maximum number of attempts (${MAX_CARDS_PER_RUN}) reached. Stopping now.`,
-            );
-            break;
-        } else {
-            console.log(
-                'Starting attempt number',
-                attemptNumber,
-                'of',
-                MAX_CARDS_PER_RUN,
-            );
+    const cardsToSend: CardToSend[] = [];
+    const unfetchableCardNames: string[] = [];
+    for (const name of cardNamesThisRun) {
+        try {
+            // eslint-disable-next-line no-await-in-loop
+            cardsToSend.push(await resolveCard(name));
+        } catch (error) {
+            console.error(`Could not fetch card "${name}". Skipping it.`);
+            console.error(error);
+            unfetchableCardNames.push(name);
         }
+    }
 
-        // get a list of cards to send out on this loop
-        const cardNamesToSend = newCardNames.slice(0, MAX_CARDS_PER_LOOP);
-        console.log('Will send out', cardNamesToSend.length, 'cards.');
+    if (unfetchableCardNames.length > 0) {
+        console.log(
+            'Could not fetch',
+            unfetchableCardNames.length,
+            'cards. They will be retried next run:',
+            Util.fullObject(unfetchableCardNames),
+        );
+    }
+    console.log('Got information for', cardsToSend.length, 'cards.');
 
-        // get data and images for the new cards
-        const cardInfoToSend = cardNamesToSend.map(async (name) => {
-            // get the card details and image
-            const card = await ScryfallTools.getCard(name);
-
-            // set up the image paths
-            const imagePaths = card.images.map((_, index) => {
-                return `images/${name.replaceAll(/\//g, 'SLASH')}${
-                    index > 0 ? `_face${index + 1}` : ''
-                }.png`;
-            });
-
-            // save the images
-            card.images.forEach((image, index) => {
-                fs.writeFileSync(imagePaths[index], image);
-            });
-
-            return {
-                imagePaths,
-                imageWebURIs: card.data.image_uris
-                    ? [card.data.image_uris.png]
-                    : card.data.card_faces
-                    ? card.data.card_faces.map((face) => {
-                          return face.image_uris.png;
-                      })
-                    : [],
-                manaCost:
-                    card.data.mana_cost ??
-                    `${card.data.card_faces?.[0].mana_cost} // ${card.data.card_faces?.[1].mana_cost}`,
-                name,
-                oracleText:
-                    card.data.oracle_text ??
-                    `${card.data.card_faces?.[0].oracle_text} // ${card.data.card_faces?.[1].oracle_text}`,
-                typeLine: card.data.type_line,
-            };
-        });
-
-        // wait for all the card images to be saved
-        // eslint-disable-next-line no-await-in-loop
-        const cardsToSend = await Promise.all(cardInfoToSend);
-        console.log('Got information for', cardsToSend.length, 'cards.');
+    // PHASE 2: all of the data is in hand, so start sending notifications.
+    // NOTE: the images are not cleaned up between chunks any more, because
+    // every card's images are already on disk by this point and removeImages
+    // would delete the ones that have not been sent yet. The finally block at
+    // the bottom of this file removes them all once the run is over
+    for (
+        let index = 0;
+        index < cardsToSend.length;
+        index += MAX_CARDS_PER_LOOP
+    ) {
+        const chunk = cardsToSend.slice(index, index + MAX_CARDS_PER_LOOP);
+        console.log('Will send out', chunk.length, 'cards.');
 
         // send out notifications over e-mail.
         // NOTE: Do this BEFORE sending discord messages because the e-mailer
@@ -291,18 +321,18 @@ let savedResults = false;
         // it will fail before the discord messages are sent and we won't keep
         // on sending extra discord messgaes all the time
         // eslint-disable-next-line no-await-in-loop
-        await formatAndSendEmails(cardsToSend);
+        await formatAndSendEmails(chunk);
 
         // send out notifications over discord
-        formatAndSendDiscordMessages(cardsToSend);
+        formatAndSendDiscordMessages(chunk);
 
-        // remove stored image files
-        FileTools.removeImages();
-
-        // remove the chunk of cards that already got sent out and add them to
-        // the nextRunCards list
-        const finishedNewCards = newCardNames.splice(0, MAX_CARDS_PER_LOOP);
-        successfullySentCards.push(...finishedNewCards);
+        // record what went out immediately, so that if a later chunk fails
+        // these cards are still remembered and never sent a second time
+        successfullySentCards.push(
+            ...chunk.map((card) => {
+                return card.name;
+            }),
+        );
 
         // wait a little to avoid any kind of rate-limiting issues with the
         // e-mail. We're not in a rush here

@@ -18,11 +18,18 @@ export class FileTools {
         previousResults: string[],
         results: string[],
     ) => {
-        const resultsFileContents = JSON.stringify(
-            [...new Set([...previousResults, ...results])].sort(),
-            null,
-            4,
-        );
+        const allResults = [...new Set([...previousResults, ...results])];
+
+        // now that CI uploads the results file even when the run fails, an
+        // early crash (before the previous results were loaded) could
+        // otherwise overwrite the remembered card list with an empty one and
+        // wipe out everything the notifier knows
+        if (allResults.length === 0) {
+            console.log('Refusing to save an empty results list.');
+            return;
+        }
+
+        const resultsFileContents = JSON.stringify(allResults.sort(), null, 4);
         console.log('Writing results file contents:', resultsFileContents);
         fs.writeFileSync('results.json', resultsFileContents);
     };

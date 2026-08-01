@@ -4,7 +4,8 @@
     "description": "Detects new cards uploaded to scryfall.com and sends e-mail updates.",
     "main": "src/main.ts",
     "scripts": {
-        "main": "npx ts-node src/main.ts"
+        "main": "npx ts-node src/main.ts",
+        "test": "bash test/regression.sh"
     },
     "repository": {
         "type": "git",
