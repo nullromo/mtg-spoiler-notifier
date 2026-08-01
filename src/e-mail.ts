@@ -7,6 +7,16 @@ const RECIPIENTS = (
     return recipient.replace('***AT***', '@');
 });
 
+// broadcast() is a Promise.all over this list, so an empty list would resolve
+// straight away and every card would be recorded as reported without a single
+// e-mail going out. Fail at startup instead, before anything can be recorded.
+// See issue #10
+if (RECIPIENTS.length === 0) {
+    throw new Error(
+        'recipients.json contains no recipients. Refusing to run: sending to nobody would look like a successful notification and every new card would be marked as reported.',
+    );
+}
+
 const CREDENTIALS = {
     pass: process.env.SECRET_GMAIL_APP_PASSWORD,
     user: 'mtgspoilernotifier@gmail.com',

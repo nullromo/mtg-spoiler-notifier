@@ -6,6 +6,11 @@ on:
     - cron: "*/30 * * * *"
   # allow this workflow to be run manually from the Actions tab
   workflow_dispatch:
+    inputs:
+      bootstrap:
+        description: "Adopt everything currently in Scryfall as the baseline without sending any notifications. Only for a first run, or to recover after the remembered card list has been lost for good."
+        type: boolean
+        default: false
 
 jobs:
   #keepalive:
@@ -47,6 +52,17 @@ jobs:
           [ ! -f results.json ] || mv results.json previous-results.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # deliberately start over from an empty remembered card list.
+      # NOTE: the main script refuses to run when previous-results.json is
+      # missing or unreadable, because it cannot tell a lost list from a first
+      # run and guessing would silently discard every notification in the
+      # catalog. This input is how a human says "it really is a fresh start".
+      # Without it there would be no way to recover once the artifact is gone —
+      # artifacts expire, and the file is not in the repo. See issue #10
+      - name: Bootstrap an empty card list
+        if: inputs.bootstrap
+        run: echo '[]' > previous-results.json
 
       # run the main script
       - name: Run main script

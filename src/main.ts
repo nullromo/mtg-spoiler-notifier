@@ -10,7 +10,12 @@ import { Symbols } from './symbols';
 import { Util } from './util';
 
 // if there are more than this many cards in the new cards list, then something
-// has gone wrong and the list of remembered cards should be reset
+// has gone wrong: Scryfall does not add ten thousand cards between two runs
+// half an hour apart, so the remembered card list must be missing, stale or
+// truncated. Recording that many cards as reported without sending them would
+// lose every one of those notifications for good, so the only case that adopts
+// the catalog wholesale is a remembered list that is deliberately empty — a
+// bootstrap a human asked for. See issue #10
 const CARD_LIST_ERROR_THRESHOLD = 10000;
 
 // restrict the maximum number of cards that can be sent at one time
@@ -208,6 +213,13 @@ const previousResults: string[] = [];
 // track cards that were successfully sent out
 const successfullySentCards: string[] = [];
 
+// whether the results file may be written at the end of the run. It starts out
+// false because until the remembered card list has been read there is nothing
+// meaningful to write: saving without knowing what was already reported would
+// record cards as reported that never went out. Any bail-out sets it back to
+// false, so CI uploads nothing and the last known-good artifact survives
+let safeToSaveResults = false;
+
 // track whether results file has been saved
 let savedResults = false;
 
@@ -218,8 +230,22 @@ let savedResults = false;
         .option('n', { alias: 'number-to-remove', default: 0, type: 'number' })
         .parse(process.argv);
 
-    // load previous card list
-    previousResults.push(...FileTools.getPreviousResults());
+    // load previous card list. If it could not be read then there is no way to
+    // tell a new card from an old one, so give up immediately — before
+    // fetching, sending or writing anything. Exiting non-zero here leaves the
+    // last good artifact in place for the next run to download, and makes the
+    // failed hand-off visible instead of silently absorbing it. Carrying on
+    // with an assumed-empty list would instead treat all of Scryfall as new,
+    // and the reset below would record the whole catalog as reported without
+    // notifying anybody. See issue #10
+    const loadResult = FileTools.getPreviousResults();
+    if (loadResult.status === 'unreadable') {
+        throw new Error(
+            `${loadResult.reason} Refusing to run: without the list of cards that have already been reported, every card looks new. The results file has been left untouched.`,
+        );
+    }
+    previousResults.push(...loadResult.cardNames);
+    safeToSaveResults = true;
     console.log('There are', previousResults.length, 'known cards.');
 
     // get current card list
@@ -254,13 +280,29 @@ let savedResults = false;
     // if there are way too many new cards, then some error occurred while
     // trying to save the previous card list
     if (newCardNames.length > CARD_LIST_ERROR_THRESHOLD) {
-        console.log(
-            'There were',
-            newCardNames.length,
-            'new cards, which is way too many to be real. Saving the list for next time.',
-        );
+        // a remembered list that already knew about some cards cannot
+        // legitimately fall this far behind, so it is stale or truncated rather
+        // than merely out of date — the artifact hand-off can hand back an old
+        // artifact just as easily as no artifact at all. Adopting the catalog
+        // here would mark every one of these cards as reported and lose the lot,
+        // so bail out with the results file untouched and let the next run try
+        // again with the older, better artifact. See issue #10
+        if (previousResults.length > 0) {
+            safeToSaveResults = false;
+            throw new Error(
+                `Detected ${newCardNames.length} new cards against a remembered list of ${previousResults.length}, which is way too many to be real. Refusing to run: the remembered card list looks stale, and recording these as reported would lose all of them. The results file has been left untouched.`,
+            );
+        }
 
-        // just save the card list and try again next time
+        // the remembered list is deliberately empty, which is how a first run
+        // says "adopt whatever Scryfall has right now as the baseline". Nobody
+        // wants tens of thousands of e-mails, so the catalog is recorded without
+        // being sent — the one case where that is the intended outcome
+        console.log(
+            'The remembered card list is empty, so this is a bootstrap:',
+            allCards.length,
+            'cards will be recorded as already reported without being sent.',
+        );
         FileTools.saveResults(previousResults, allCards);
         savedResults = true;
 
@@ -347,7 +389,15 @@ let savedResults = false;
         throw error;
     })
     .finally(() => {
-        if (!savedResults) {
+        if (!safeToSaveResults) {
+            // the run bailed out without a card list it could trust, so there is
+            // nothing meaningful to write. Leaving the file alone means CI
+            // uploads no new artifact and the last known-good one survives for
+            // the next run to pick up
+            console.log(
+                'Leaving the results file untouched, so the last known-good card list survives.',
+            );
+        } else if (!savedResults) {
             // save card list after everything has been sent out. The saved
             // list is the previous list plus everything that was successfully
             // sent out this run. If the results were already saved earlier,

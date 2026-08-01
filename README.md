@@ -19,6 +19,42 @@ When this job runs, it performs the following steps:
        Discord channels.
 1. Save the list of all cards for the next run to look at.
 
+### The Remembered Card List
+
+Last run's list lives in `previous-results.json`, which is not in the repo — it
+only ever arrives as the previous run's uploaded artifact. A name in that list
+means a notification really went out for that card, and nothing ever
+reconsiders a name once it is in there, so a name that lands there without a
+notification having been sent is a card that silently never gets reported.
+
+Because of that, the notifier bails out rather than guess whenever it cannot
+trust that list. It refuses to send or record anything, exits non-zero, and
+writes no results file, which leaves the last known-good artifact in place for
+the next run to pick up. Two things trigger it:
+
+- `previous-results.json` is missing or unreadable — a failed artifact download
+  looks exactly like a first run, and guessing "first run" would mark the whole
+  catalog as reported.
+- The list loaded, but more than 10,000 cards look new. Scryfall does not add
+  ten thousand cards in half an hour, so the list is stale or truncated.
+
+The one exception is a list that is present and deliberately empty, which is how
+a baseline gets established: everything currently in Scryfall is recorded as
+already reported and nothing is sent. That is the only case where a card is
+recorded without a notification going out, and it only happens because somebody
+asked for it.
+
+### Starting From Scratch
+
+Run the workflow manually from the Actions tab with the **bootstrap** input
+checked. That writes an empty `previous-results.json` before the main script
+runs, so the current catalog becomes the baseline and no notifications go out.
+
+This is needed for the very first run, and to recover if the remembered list is
+gone for good — artifacts expire, so a workflow left disabled long enough will
+come back with nothing to download. Until it is bootstrapped, every run will
+fail loudly rather than quietly skip the cards it lost.
+
 ### Translation Notes
 
 Sometimes cards are spoiled with non-English images. When this happens, Scryfall

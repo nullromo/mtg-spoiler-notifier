@@ -1,16 +1,58 @@
 import fs from 'fs';
 
+// the outcome of trying to read the remembered card list. An unreadable list
+// and a genuinely empty one used to both come back as [], which made them
+// indistinguishable — and the difference matters enormously. An empty list
+// means "nothing has ever been reported"; an unreadable one means "we have no
+// idea what has been reported", and acting on that mistakes the entire Scryfall
+// catalog for new cards. See issue #10
+export type PreviousResultsLoad =
+    | { status: 'loaded'; cardNames: string[] }
+    | { status: 'unreadable'; reason: string };
+
 export class FileTools {
     // get results from previous run
-    public static getPreviousResults = () => {
+    public static getPreviousResults = (): PreviousResultsLoad => {
+        let contents: string;
         try {
-            return JSON.parse(
-                fs.readFileSync('previous-results.json').toString(),
-            ) as string[];
+            contents = fs.readFileSync('previous-results.json').toString();
         } catch (error) {
-            console.error('Could not find previous results. Using empty list.');
-            return [];
+            // NOTE: the file is never in the repo (it is gitignored); it only
+            // ever arrives as the previous run's artifact. So it being absent
+            // means the hand-off failed, not that this is a first run
+            return {
+                reason: `Could not read previous-results.json: ${String(error)}`,
+                status: 'unreadable',
+            };
         }
+
+        let parsed: unknown;
+        try {
+            parsed = JSON.parse(contents);
+        } catch (error) {
+            return {
+                reason: `previous-results.json is not valid JSON: ${String(
+                    error,
+                )}`,
+                status: 'unreadable',
+            };
+        }
+
+        if (
+            !Array.isArray(parsed) ||
+            parsed.some((cardName) => {
+                return typeof cardName !== 'string';
+            })
+        ) {
+            return {
+                reason: 'previous-results.json is not an array of card names.',
+                status: 'unreadable',
+            };
+        }
+
+        // an empty array here is a real answer: the file was written on purpose
+        // to say that no cards have been reported yet
+        return { cardNames: parsed as string[], status: 'loaded' };
     };
 
     // save results for this run
