@@ -49,19 +49,13 @@ export class Util {
         return String(error);
     };
 
-    // "Alpha, Bravo, Charlie and 17 more". Card-name lists are unbounded — a
-    // set release detects hundreds at once — and printing every one of them
-    // buries everything else in the log
-    public static summarizeList = (items: string[], limit = 8) => {
-        if (items.length === 0) {
-            return 'none';
-        }
-        if (items.length <= limit) {
-            return items.join(', ');
-        }
-        return `${items.slice(0, limit).join(', ')} and ${
-            items.length - limit
-        } more`;
+    // "Alpha, Bravo, Charlie". Every name, on one line however many there are:
+    // knowing exactly which cards were detected or are still owed is worth more
+    // than a shorter line, and one long line costs nothing to scroll past. The
+    // old util.inspect version was the expensive one — it pretty-printed an
+    // array across a line per entry
+    public static formatList = (items: string[]) => {
+        return items.length === 0 ? 'none' : items.join(', ');
     };
 
     public static flattenArray = <T>(array: Array<T | T[]>) => {

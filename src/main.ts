@@ -346,7 +346,7 @@ let safeToSaveLedger = false;
             'Evicted',
             eviction.evicted.length,
             'cards that are no longer in the catalog:',
-            Util.summarizeList(eviction.evicted),
+            Util.formatList(eviction.evicted),
         );
     }
 
@@ -358,7 +358,7 @@ let safeToSaveLedger = false;
         'Detected',
         detection.detected.length,
         'new card names:',
-        Util.summarizeList(detection.detected),
+        Util.formatList(detection.detected),
     );
 
     // work the queue. Each card is fetched once and then delivered to every

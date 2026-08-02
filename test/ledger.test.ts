@@ -509,17 +509,22 @@ test('an unexpected failure keeps its stack', () => {
     assert.ok(described.includes('at '), described);
 });
 
-test('a long card list is truncated', () => {
+test('a long card list is printed in full, on one line', () => {
+    // no truncation: knowing exactly which cards were detected is the point.
+    // What made this expensive before was util.inspect spreading an array over
+    // a line per entry, not the number of names
     const names = Array.from({ length: 300 }, (_, index) => {
         return `Card ${index}`;
     });
-    const summary = Util.summarizeList(names);
-    assert.ok(summary.endsWith('and 292 more'), summary);
+    const formatted = Util.formatList(names);
+    assert.strictEqual(formatted.split('\n').length, 1);
+    assert.ok(formatted.startsWith('Card 0, Card 1,'), formatted);
+    assert.ok(formatted.endsWith('Card 299'), formatted);
 });
 
 test('a short card list is printed in full, and an empty one reads as none', () => {
-    assert.strictEqual(Util.summarizeList(['Alpha', 'Bravo']), 'Alpha, Bravo');
-    assert.strictEqual(Util.summarizeList([]), 'none');
+    assert.strictEqual(Util.formatList(['Alpha', 'Bravo']), 'Alpha, Bravo');
+    assert.strictEqual(Util.formatList([]), 'none');
 });
 
 test('the summary names every active destination, even the caught-up ones', () => {

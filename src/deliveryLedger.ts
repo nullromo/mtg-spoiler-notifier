@@ -418,8 +418,7 @@ export class DeliveryLedger {
             const note = active.has(destinationId)
                 ? ''
                 : '  (no longer subscribed)';
-            const names =
-                owed.length === 0 ? '' : `  ${Util.summarizeList(owed, 5)}`;
+            const names = owed.length === 0 ? '' : `  ${Util.formatList(owed)}`;
             return `${destinationId.padEnd(width)}  ${String(
                 owed.length,
             ).padStart(4)}${names}${note}`;
