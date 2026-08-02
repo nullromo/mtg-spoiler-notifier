@@ -143,12 +143,12 @@ const makeAttachments = (cardsToSend: CardToSend[]): AttachmentData[] => {
 };
 
 const sendEmail = async (recipient: EmailRecipient, card: CardToSend) => {
-    const html = makeEmailHTML([card]);
-    console.log('Sending e-mail html:', html);
+    // NOTE: the rendered HTML is deliberately not logged. It ran to nineteen
+    // lines per card and said nothing the delivery line below does not
     await emailer.send(
         recipient,
         makeSubject([card]),
-        html,
+        makeEmailHTML([card]),
         makeAttachments([card]),
     );
 };
@@ -171,7 +171,6 @@ const sendDiscordMessage = async (
     const embeds = card.imageWebURIs.map((path) => {
         return { image: { url: path } };
     });
-    console.log(`Sending discord message to ${discordServer.name}`);
     await axios.post(discordServer.webhookURI, {
         // insert emoji
         content: content.replaceAll(
@@ -283,7 +282,7 @@ let safeToSaveLedger = false;
     ledger = load.ledger;
     safeToSaveLedger = true;
     console.log('The ledger knows about', ledger.known.length, 'cards.');
-    console.log('Destinations:', Util.fullObject(activeIds));
+    console.log('Destinations:', activeIds.join(', '));
 
     // get current card list
     const catalog = await ScryfallTools.getCardCatalog();
@@ -347,7 +346,7 @@ let safeToSaveLedger = false;
             'Evicted',
             eviction.evicted.length,
             'cards that are no longer in the catalog:',
-            Util.fullObject(eviction.evicted),
+            Util.summarizeList(eviction.evicted),
         );
     }
 
@@ -355,8 +354,12 @@ let safeToSaveLedger = false;
     // active destination
     const detection = DeliveryLedger.detect(ledger, catalog, activeIds);
     ledger = detection.ledger;
-    console.log('Detected', detection.detected.length, 'new card names.');
-    console.log('New card names:', Util.fullObject(detection.detected));
+    console.log(
+        'Detected',
+        detection.detected.length,
+        'new card names:',
+        Util.summarizeList(detection.detected),
+    );
 
     // work the queue. Each card is fetched once and then delivered to every
     // active destination that is still owed it, and each confirmed delivery is
@@ -404,8 +407,10 @@ let safeToSaveLedger = false;
             // cannot block anything, and gets retried on a later run. A catalog
             // entry with no card behind it — "Wargling" — used to throw partway
             // through sending and abort the whole run. See issue #8
-            console.error(`Could not fetch card "${cardName}". Skipping it.`);
-            console.error(error);
+            console.error(
+                `Could not fetch card "${cardName}", so it keeps its place in the queue:`,
+                Util.describeError(error),
+            );
             stats.fetchFailures += 1;
             ledger = DeliveryLedger.rotateToBack(ledger, cardName);
             continue;
@@ -427,9 +432,9 @@ let safeToSaveLedger = false;
                 await destination.send(card);
             } catch (error) {
                 console.error(
-                    `Could not deliver "${cardName}" to ${destination.name}.`,
+                    `Could not deliver "${cardName}" to ${destination.name}, so it stays owed:`,
+                    Util.describeError(error),
                 );
-                console.error(error);
                 const failures = (consecutiveFailures[destinationId] ?? 0) + 1;
                 consecutiveFailures[destinationId] = failures;
                 if (failures >= DESTINATION_FAILURE_LIMIT) {
@@ -443,6 +448,7 @@ let safeToSaveLedger = false;
 
             // the delivery is confirmed, so this is the moment — and the only
             // moment — the card stops being owed to this destination
+            console.log(`Delivered "${cardName}" to ${destination.name}.`);
             consecutiveFailures[destinationId] = 0;
             stats.delivered[destinationId] =
                 (stats.delivered[destinationId] ?? 0) + 1;
@@ -493,7 +499,10 @@ let safeToSaveLedger = false;
     console.log('No more new cards to report.');
 })()
     .catch((error) => {
-        console.log(error);
+        // only this file's own deliberate bail-outs reach here — a failed fetch
+        // or delivery is handled in the loop — so the message is the point and
+        // the stack that node prints on the way out is enough
+        console.error(Util.describeError(error));
         throw error;
     })
     .finally(() => {
@@ -510,6 +519,13 @@ let safeToSaveLedger = false;
             // rotation are not until now — and a run that delivered nothing at
             // all still needs to record them
             FileTools.saveLedger(ledger);
+
+            // printed every run, successful or not, because it is the one
+            // statement of who is behind and by how much
+            console.log('Outstanding by destination:');
+            DeliveryLedger.summarize(ledger, activeIds).forEach((line) => {
+                console.log(`  ${line}`);
+            });
         }
 
         // remove any remaining stored image files

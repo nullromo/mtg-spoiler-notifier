@@ -80,12 +80,14 @@ export class EMailer {
                     textEncoding: 'base64',
                     to: recipient.address,
                 },
-                (error, info) => {
+                // NOTE: neither branch logs. nodemailer's info object ran to
+                // twenty-two lines per delivery, and the error was printed here
+                // and then again by the caller. main.ts reports both outcomes
+                // in one line each
+                (error) => {
                     if (error) {
-                        console.error(error);
                         reject(error);
                     } else {
-                        console.log('Sent e-mail:', info);
                         resolve();
                     }
                 },

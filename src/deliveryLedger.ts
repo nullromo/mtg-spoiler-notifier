@@ -16,6 +16,8 @@
 //
 // See docs/adr/0001-per-destination-delivery-tracking.md and issue #11.
 
+import { Util } from './util';
+
 // a destination is either one e-mail recipient ("email:<obfuscated address>")
 // or one Discord server ("discord:<stable id>"). The e-mail half is keyed by
 // the obfuscated form from recipients.json rather than the real address: the
@@ -387,6 +389,41 @@ export class DeliveryLedger {
             });
         });
         return work;
+    };
+
+    // What each destination is still owed, as lines for the run log. Printed
+    // every run, because `outstanding` is not empty in ordinary operation — an
+    // unfetchable name like "Wargling" lives in it indefinitely — so "something
+    // is outstanding" is not by itself a signal, and the only way to see who is
+    // actually falling behind is to look at the split
+    public static readonly summarize = (
+        ledger: Ledger,
+        activeIds: DestinationId[],
+    ): string[] => {
+        const active = new Set(activeIds);
+        const destinationIds = [
+            ...activeIds,
+            ...Object.keys(ledger.outstanding).filter((destinationId) => {
+                return !active.has(destinationId);
+            }),
+        ];
+        const width = destinationIds.reduce((widest, destinationId) => {
+            return Math.max(widest, destinationId.length);
+        }, 0);
+
+        return destinationIds.map((destinationId) => {
+            const owed = ledger.outstanding[destinationId] ?? [];
+            // a departed destination keeps whatever it was owed when it left,
+            // frozen, so that re-adding it delivers exactly that and no more
+            const note = active.has(destinationId)
+                ? ''
+                : '  (no longer subscribed)';
+            const names =
+                owed.length === 0 ? '' : `  ${Util.summarizeList(owed, 5)}`;
+            return `${destinationId.padEnd(width)}  ${String(
+                owed.length,
+            ).padStart(4)}${names}${note}`;
+        });
     };
 
     public static readonly destinationsOwed = (

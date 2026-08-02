@@ -15,6 +15,7 @@ import {
     STALLED_OUTSTANDING_THRESHOLD,
     STALL_TIMEOUT_MS,
 } from '../src/deliveryLedger';
+import { Util } from '../src/util';
 
 const NOW = new Date('2026-08-01T12:00:00.000Z');
 const EMAIL = 'email:someone***AT***example.com';
@@ -196,11 +197,7 @@ section('detect: new cards join every active queue');
 
 test('a newly seen card is owed to every active destination', () => {
     const { detected, ledger } = DeliveryLedger.detect(
-        DeliveryLedger.ensureDestinations(
-            DeliveryLedger.empty(),
-            ACTIVE,
-            NOW,
-        ),
+        DeliveryLedger.ensureDestinations(DeliveryLedger.empty(), ACTIVE, NOW),
         ['Alpha', 'Bravo'],
         ACTIVE,
     );
@@ -401,7 +398,11 @@ test('a set release with deliveries succeeding is healthy', () => {
             outstanding: { [EMAIL]: backlog },
         },
         [EMAIL],
-        { attempted: { [EMAIL]: 20 }, delivered: { [EMAIL]: 20 }, fetchFailures: 0 },
+        {
+            attempted: { [EMAIL]: 20 },
+            delivered: { [EMAIL]: 20 },
+            fetchFailures: 0,
+        },
         NOW,
     );
     assert.strictEqual(report.healthy, true);
@@ -479,6 +480,96 @@ test('a single failed delivery does not fail the run', () => {
         NOW,
     );
     assert.strictEqual(report.healthy, true);
+});
+
+// ---------------------------------------------------------------------------
+section('logging: keeping a run readable');
+
+test('an axios failure describes itself in one line', () => {
+    // console.error on one of these printed 353 lines of a 632-line run log,
+    // for a 404 that happens every half hour and is entirely expected
+    const described = Util.describeError({
+        config: { method: 'get', url: 'https://api.scryfall.com/cards/named' },
+        isAxiosError: true,
+        message: 'Request failed with status code 404',
+        response: {
+            data: { details: 'No cards found matching “Wargling”' },
+            status: 404,
+        },
+    });
+    assert.strictEqual(described.split('\n').length, 1);
+    assert.ok(described.includes('404'), described);
+    assert.ok(described.includes('Wargling'), described);
+});
+
+test('an unexpected failure keeps its stack', () => {
+    // the case where a stack is actually worth reading
+    const described = Util.describeError(new Error('something odd'));
+    assert.ok(described.includes('something odd'), described);
+    assert.ok(described.includes('at '), described);
+});
+
+test('a long card list is truncated', () => {
+    const names = Array.from({ length: 300 }, (_, index) => {
+        return `Card ${index}`;
+    });
+    const summary = Util.summarizeList(names);
+    assert.ok(summary.endsWith('and 292 more'), summary);
+});
+
+test('a short card list is printed in full, and an empty one reads as none', () => {
+    assert.strictEqual(Util.summarizeList(['Alpha', 'Bravo']), 'Alpha, Bravo');
+    assert.strictEqual(Util.summarizeList([]), 'none');
+});
+
+test('the summary names every active destination, even the caught-up ones', () => {
+    const lines = DeliveryLedger.summarize(
+        {
+            known: ['Wargling'],
+            lastDeliveredAt: {},
+            outstanding: {
+                [EMAIL]: [],
+                [EAST_BAY]: [],
+                [QUOYLES]: ['Wargling'],
+            },
+        },
+        ACTIVE,
+    );
+    assert.strictEqual(lines.length, 3);
+    assert.ok(
+        lines.some((line) => {
+            return line.includes(QUOYLES) && line.includes('Wargling');
+        }),
+        lines.join('\n'),
+    );
+    // a destination owed nothing still gets a line, so "everyone is caught up"
+    // is visible rather than inferred from an absence
+    assert.ok(
+        lines.some((line) => {
+            return line.includes(EMAIL) && line.trimEnd().endsWith('0');
+        }),
+        lines.join('\n'),
+    );
+});
+
+test('the summary flags a destination that is no longer subscribed', () => {
+    const orphan = 'email:departed***AT***example.com';
+    const lines = DeliveryLedger.summarize(
+        {
+            known: ['Alpha'],
+            lastDeliveredAt: {},
+            outstanding: { [EMAIL]: [], [orphan]: ['Alpha'] },
+        },
+        [EMAIL],
+    );
+    assert.ok(
+        lines.some((line) => {
+            return (
+                line.includes(orphan) && line.includes('no longer subscribed')
+            );
+        }),
+        lines.join('\n'),
+    );
 });
 
 console.log();

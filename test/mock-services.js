@@ -71,8 +71,15 @@ axios.get = async (url) => {
         const name = decodeURIComponent(named.groups.name);
         if (BROKEN.has(name)) {
             // exactly what Scryfall does for a catalog name with no card
-            // behind it, e.g. "Wargling" on 2026-08-01
+            // behind it, e.g. "Wargling" on 2026-08-01.
+            // NOTE: this has to carry `isAxiosError` and `config` as well as
+            // `response`, because that is what a real axios rejection looks
+            // like and what Util.describeError keys off to decide between a
+            // one-line summary and a full stack
             const error = new Error('Request failed with status code 404');
+            error.isAxiosError = true;
+            error.code = 'ERR_BAD_REQUEST';
+            error.config = { method: 'get', url };
             error.response = {
                 data: {
                     code: 'not_found',
@@ -110,6 +117,9 @@ axios.post = async (url, body) => {
         // post used to be fire-and-forget, so this was logged and forgotten
         // while the card was recorded as reported
         const error = new Error('Request failed with status code 500');
+        error.isAxiosError = true;
+        error.code = 'ERR_BAD_RESPONSE';
+        error.config = { method: 'post', url };
         error.response = { data: {}, status: 500 };
         throw error;
     }
