@@ -73,11 +73,12 @@ jobs:
         run: npm run main
 
       # upload the new results.
-      # NOTE: this MUST run even when the main script fails. main.ts always
-      # writes results.json with whatever was successfully sent, but a step
-      # with no `if:` defaults to `if: success()`, so a crashed run used to
-      # throw that file away. The next run then re-downloaded the older
-      # artifact and sent every one of those cards again. See issue #8
+      # NOTE: this MUST run even when the main script fails. Unless it bailed
+      # out without a ledger it could trust, main.ts writes results.json with
+      # every delivery that was confirmed — but a step with no `if:` defaults
+      # to `if: success()`, so a crashed run used to throw that file away. The
+      # next run then re-downloaded the older artifact and sent every one of
+      # those cards again. See issue #8
       - name: Upload results
         if: always()
         uses: actions/upload-artifact@v7

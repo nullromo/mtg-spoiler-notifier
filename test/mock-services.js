@@ -4,10 +4,16 @@
 //
 // Configured entirely through environment variables so the shell script that
 // drives it stays in charge of the scenario:
-//   HARNESS_CATALOG         path to a JSON array of card names
-//   HARNESS_BROKEN          JSON array of names that 404 on /cards/named
-//   HARNESS_EMAIL_FAILS_ON  substring of a subject whose send should fail
-//   NOTIFY_LOG              file to append one line per notification sent
+//   HARNESS_CATALOG           path to a JSON array of card names
+//   HARNESS_BROKEN            JSON array of names that 404 on /cards/named
+//   HARNESS_EMAIL_FAILS_ON    substring of a subject whose send should fail
+//   HARNESS_EMAIL_FAILS_FOR   substring of a recipient whose sends should fail
+//   HARNESS_DISCORD_FAILS_ON  substring of a webhook URI whose posts should fail
+//   NOTIFY_LOG                file to append one line per notification sent
+//
+// Every delivery is logged as "<destination>|<subject>", one line each, so a
+// scenario can assert not just that a card went out but exactly who received
+// it — which is the whole point of tracking delivery per destination.
 const fs = require('fs');
 const path = require('path');
 
@@ -28,7 +34,15 @@ const CATALOG = JSON.parse(
 );
 const BROKEN = new Set(JSON.parse(process.env.HARNESS_BROKEN || '[]'));
 const EMAIL_FAILS_ON = process.env.HARNESS_EMAIL_FAILS_ON || '';
+const EMAIL_FAILS_FOR = process.env.HARNESS_EMAIL_FAILS_FOR || '';
+const DISCORD_FAILS_ON = process.env.HARNESS_DISCORD_FAILS_ON || '';
 const NOTIFY_LOG = process.env.NOTIFY_LOG;
+
+// this file is the assertion surface: one line per notification that actually
+// went out, naming the destination that received it
+const logDelivery = (destination, subject) => {
+    fs.appendFileSync(NOTIFY_LOG, `${destination}|${subject}\n`);
+};
 
 // Collapse the polite API/rate-limit delays. Nothing here talks to a real
 // network, so there is nothing to be polite to, and it keeps the suite fast.
@@ -90,7 +104,17 @@ axios.get = async (url) => {
 };
 
 // discord webhook
-axios.post = async () => {
+axios.post = async (url, body) => {
+    if (DISCORD_FAILS_ON && url.includes(DISCORD_FAILS_ON)) {
+        // what a webhook looks like when the server is having a bad day. The
+        // post used to be fire-and-forget, so this was logged and forgotten
+        // while the card was recorded as reported
+        const error = new Error('Request failed with status code 500');
+        error.response = { data: {}, status: 500 };
+        throw error;
+    }
+    // the first line of a Discord message is the same subject the e-mail uses
+    logDelivery(`discord:${url}`, String(body.content).split('\n')[0]);
     return { data: {} };
 };
 
@@ -99,7 +123,10 @@ nodemailer.createTransport = () => {
         close: () => {},
         sendMail: (options, callback) => {
             // simulate hitting the Gmail daily sending limit
-            if (EMAIL_FAILS_ON && options.subject.includes(EMAIL_FAILS_ON)) {
+            const failed =
+                (EMAIL_FAILS_ON && options.subject.includes(EMAIL_FAILS_ON)) ||
+                (EMAIL_FAILS_FOR && options.to.includes(EMAIL_FAILS_FOR));
+            if (failed) {
                 realSetTimeout(() => {
                     return callback(
                         new Error('Daily user sending limit exceeded'),
@@ -107,9 +134,7 @@ nodemailer.createTransport = () => {
                 }, 0);
                 return;
             }
-            // this file is the assertion surface: one line per notification
-            // that actually went out
-            fs.appendFileSync(NOTIFY_LOG, `${options.subject}\n`);
+            logDelivery(`email:${options.to}`, options.subject);
             realSetTimeout(() => {
                 return callback(null, { messageId: 'test-harness' });
             }, 0);

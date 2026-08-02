@@ -9,40 +9,67 @@ The `.github/workflows/main-runner.yml` file in this repo sets up a
 When this job runs, it performs the following steps:
 
 1. Get a list of every card from Scryfall.
-1. Compare the list against last run's list to find any new cards.
-    1. If there are no new cards, exit.
-    1. If there are new cards, generate an e-mail containing the names and
-       images of the new cards and broadcast it out to all addresses in the
-       [recipients list](./recipients.json).
-    1. If there are new cards, generate a Discord message containing the names
-       and images of the new cards and broadcast it out to the applicable
-       Discord channels.
-1. Save the list of all cards for the next run to look at.
+1. Compare it against the ledger to find card names that have never been seen.
+   Each new name is recorded as known and becomes owed to every destination —
+   every address in the [recipients list](./recipients.json), and every
+   subscribed Discord channel.
+1. Work through what is owed, one card at a time: fetch its details and images
+   from Scryfall, then send it to each destination that is still owed it.
+1. Record each delivery the instant that destination confirms it, and save the
+   ledger for the next run.
 
-### The Remembered Card List
+### The Ledger
 
-Last run's list lives in `previous-results.json`, which is not in the repo — it
-only ever arrives as the previous run's uploaded artifact. A name in that list
-means a notification really went out for that card, and nothing ever
-reconsiders a name once it is in there, so a name that lands there without a
-notification having been sent is a card that silently never gets reported.
+The ledger is what the notifier carries from one run to the next. It lives in
+`previous-results.json`, which is not in the repo — it only ever arrives as the
+previous run's uploaded artifact. It records two separate things:
 
-Because of that, the notifier bails out rather than guess whenever it cannot
-trust that list. It refuses to send or record anything, exits non-zero, and
-writes no results file, which leaves the last known-good artifact in place for
-the next run to pick up. Two things trigger it:
+- **`known`** — every card name the pipeline has ever seen. This says nothing
+  about whether anybody was notified.
+- **`outstanding`** — for each destination, the cards it is still owed, in the
+  order they should go out.
 
-- `previous-results.json` is missing or unreadable — a failed artifact download
-  looks exactly like a first run, and guessing "first run" would mark the whole
-  catalog as reported.
-- The list loaded, but more than 10,000 cards look new. Scryfall does not add
-  ten thousand cards in half an hour, so the list is stale or truncated.
+Keeping those apart is the whole point. A card leaves a destination's
+outstanding list only when that destination confirms delivery, so one broken
+Discord webhook cannot make a card look reported to everybody, and one failing
+e-mail address cannot cause the card to be re-sent to everybody who already got
+it. See [ADR 0001](./docs/adr/0001-per-destination-delivery-tracking.md) for
+why it is shaped this way, and [CONTEXT.md](./CONTEXT.md) for the vocabulary.
 
-The one exception is a list that is present and deliberately empty, which is how
-a baseline gets established: everything currently in Scryfall is recorded as
-already reported and nothing is sent. That is the only case where a card is
-recorded without a notification going out, and it only happens because somebody
-asked for it.
+Adding a destination never backfills it: somebody new is treated as caught up,
+not owed the entire back catalogue.
+
+The notifier bails out rather than guess whenever it cannot trust the ledger. It
+refuses to send or record anything, exits non-zero, and writes no results file,
+which leaves the last known-good artifact in place for the next run to pick up.
+Two things trigger it:
+
+- `previous-results.json` is missing, unreadable or malformed — a failed
+  artifact download looks exactly like a first run, and guessing "first run"
+  would mark the whole catalog as known and owed to nobody.
+- The ledger loaded, but more than 10,000 cards have never been seen. Scryfall
+  does not add ten thousand cards in half an hour, so the ledger is stale or
+  truncated.
+
+The one exception is a ledger that is present and deliberately empty, which is
+how a baseline gets established: everything currently in Scryfall is recorded as
+known and owed to nobody. That is the only case where a card is recorded without
+a notification going out, and it only happens because somebody asked for it.
+
+### When a Run Fails
+
+An individual delivery failing does not fail the run. It is ordinary, recorded
+state — the card stays owed and the next run retries it. Failing the build every
+time a webhook returns a 500, every half hour, would just make the red X
+meaningless.
+
+What does fail the run is accumulation:
+
+- more cards than ordinary catalog churn explains cannot be fetched at all;
+- a destination is badly backed up and delivered nothing at all this run;
+- a destination is owed something and has not managed a delivery in 72 hours.
+
+Everything outstanding stays outstanding, so a failed run loses nothing.
 
 ### Starting From Scratch
 
@@ -107,7 +134,9 @@ address to the [recipients list](./recipients.json). If you don't know how to do
 that, you can send me a message and I will teach you how :)
 
 NOTE: the list uses `***AT***` instead of `@` to make the addresses less
-scrapable.
+scrapable. The ledger keys destinations by that same obfuscated form, for the
+same reason — it is uploaded as a workflow artifact, and artifacts on public
+repos can be downloaded by anyone.
 
 If you want your Discord channel to be subscribed, please let me know. The
 current setup requires me to manually add Discord channels.

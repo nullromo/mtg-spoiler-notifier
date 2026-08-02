@@ -1,6 +1,15 @@
+import type { DestinationId } from './deliveryLedger';
+
 type EmojiDictionary = Partial<Record<string, string>>;
 
 export class DiscordServer {
+    // A permanent key, never edited. It is separate from `name` because `name`
+    // is a human-facing label that would reasonably get retyped or corrected —
+    // and the ledger identifies destinations by key, so a renamed key looks
+    // like a brand-new destination, which is treated as caught up. That would
+    // silently discard everything this server was still owed. See issue #11
+    public readonly id: string;
+
     public readonly name: string;
 
     public readonly emojiDictionary: EmojiDictionary;
@@ -8,6 +17,7 @@ export class DiscordServer {
     public readonly webhookURI: string;
 
     public constructor(
+        id: string,
         name: string,
         emojiDictionary: EmojiDictionary,
         webhook: string,
@@ -16,14 +26,20 @@ export class DiscordServer {
         if (webhook === '') {
             throw new Error(`Unable to get webhook for ${name}.`);
         }
+        this.id = id;
         this.name = name;
         this.emojiDictionary = emojiDictionary;
         this.webhookURI = webhook;
     }
+
+    public readonly destinationId = (): DestinationId => {
+        return `discord:${this.id}`;
+    };
 }
 
 export const discordServers = [
     new DiscordServer(
+        'quoyles-quarters',
         "Quoyle's Quarters",
         {
             0: '<:mana0:1223688827370213518>',
@@ -71,6 +87,7 @@ export const discordServers = [
         process.env.SECRET_QUOYLES_QUARTERS_DISCORD_WEBHOOK ?? '',
     ),
     new DiscordServer(
+        'east-bay-magic',
         'East Bay Magic',
         {
             0: '<:mana0:1223438190296174756>',

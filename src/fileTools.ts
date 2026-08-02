@@ -1,18 +1,10 @@
 import fs from 'fs';
-
-// the outcome of trying to read the remembered card list. An unreadable list
-// and a genuinely empty one used to both come back as [], which made them
-// indistinguishable — and the difference matters enormously. An empty list
-// means "nothing has ever been reported"; an unreadable one means "we have no
-// idea what has been reported", and acting on that mistakes the entire Scryfall
-// catalog for new cards. See issue #10
-export type PreviousResultsLoad =
-    | { status: 'loaded'; cardNames: string[] }
-    | { status: 'unreadable'; reason: string };
+import type { Ledger, LedgerLoad } from './deliveryLedger';
+import { DeliveryLedger } from './deliveryLedger';
 
 export class FileTools {
-    // get results from previous run
-    public static getPreviousResults = (): PreviousResultsLoad => {
+    // read the ledger the previous run left behind
+    public static getPreviousLedger = (): LedgerLoad => {
         let contents: string;
         try {
             contents = fs.readFileSync('previous-results.json').toString();
@@ -26,54 +18,36 @@ export class FileTools {
             };
         }
 
-        let parsed: unknown;
-        try {
-            parsed = JSON.parse(contents);
-        } catch (error) {
-            return {
-                reason: `previous-results.json is not valid JSON: ${String(
-                    error,
-                )}`,
-                status: 'unreadable',
-            };
-        }
-
-        if (
-            !Array.isArray(parsed) ||
-            parsed.some((cardName) => {
-                return typeof cardName !== 'string';
-            })
-        ) {
-            return {
-                reason: 'previous-results.json is not an array of card names.',
-                status: 'unreadable',
-            };
-        }
-
-        // an empty array here is a real answer: the file was written on purpose
-        // to say that no cards have been reported yet
-        return { cardNames: parsed as string[], status: 'loaded' };
+        return DeliveryLedger.parse(contents);
     };
 
-    // save results for this run
-    public static saveResults = (
-        previousResults: string[],
-        results: string[],
-    ) => {
-        const allResults = [...new Set([...previousResults, ...results])];
-
+    // Write the ledger out. This is called after every single confirmed
+    // delivery, not just once at the end of the run, so that a cancelled or
+    // killed runner loses at most the one delivery that was in flight rather
+    // than every delivery the run had made. See issue #11
+    public static saveLedger = (ledger: Ledger) => {
         // now that CI uploads the results file even when the run fails, an
-        // early crash (before the previous results were loaded) could
-        // otherwise overwrite the remembered card list with an empty one and
-        // wipe out everything the notifier knows
-        if (allResults.length === 0) {
-            console.log('Refusing to save an empty results list.');
+        // early crash (before the previous ledger was loaded) could otherwise
+        // overwrite the remembered card list with an empty one and wipe out
+        // everything the notifier knows
+        if (ledger.known.length === 0) {
+            console.log('Refusing to save an empty ledger.');
             return;
         }
 
-        const resultsFileContents = JSON.stringify(allResults.sort(), null, 4);
-        console.log('Writing results file contents:', resultsFileContents);
-        fs.writeFileSync('results.json', resultsFileContents);
+        // NOTE: deliberately not logging the contents. This runs up to twenty
+        // times per run and the file is the better part of a megabyte
+        fs.writeFileSync('results.json', DeliveryLedger.serialize(ledger));
+    };
+
+    public static removeFiles = (paths: string[]) => {
+        paths.forEach((path) => {
+            try {
+                fs.unlinkSync(path);
+            } catch (error) {
+                console.error(`Could not remove ${path}:`, error);
+            }
+        });
     };
 
     public static removeImages = () => {
