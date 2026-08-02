@@ -1,0 +1,50 @@
+name: CI
+
+# Nothing else runs the test suites. main-runner.yml runs the notifier on a
+# schedule but never checks the code, so without this a regression's first
+# visible symptom is a duplicate notification — or a missing one — on the next
+# half-hourly run. See issue #12
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  # allow this workflow to be run manually from the Actions tab
+  workflow_dispatch:
+
+# a newer push to the same branch makes any run still in flight irrelevant
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      # git checkout
+      - uses: actions/checkout@v6
+
+      # NOTE: Node 18 to match main-runner.yml, so the tests run on the same
+      # version the notifier is actually deployed on
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 18
+          cache: npm
+
+      # install JS dependencies
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npx eslint src --ext .ts
+
+      # Both suites are fully offline: test/mock-services.js replaces Scryfall,
+      # Gmail and Discord with local fakes, so no secrets are needed and nothing
+      # here can send a real notification. test/ledger.test.ts covers the
+      # delivery ledger's rules directly; test/regression.sh drives the whole
+      # notifier through the artifact hand-off that #8, #10 and #11 lived in
+      - name: Test
+        run: npm test
