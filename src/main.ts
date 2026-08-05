@@ -1,15 +1,22 @@
 import fs from 'fs';
 import axios from 'axios';
 import yargs from 'yargs';
+import type { CardToSend } from './cardPresentation';
+import {
+    finishDiscordContent,
+    makeAttachments,
+    makeDiscordContent,
+    makeEmailHTML,
+    makeSubject,
+} from './cardPresentation';
 import type { DestinationId, Ledger, RunStats } from './deliveryLedger';
 import { DeliveryLedger } from './deliveryLedger';
 import type { DiscordServer } from './discordData';
 import { discordServers } from './discordData';
-import type { AttachmentData, EmailRecipient } from './e-mail';
+import type { EmailRecipient } from './e-mail';
 import { EMailer, emailRecipients } from './e-mail';
 import { FileTools } from './fileTools';
 import { ScryfallTools } from './scryfallTools';
-import { Symbols } from './symbols';
 import { Util } from './util';
 
 // if this many cards in Scryfall have never been seen before, then something
@@ -53,17 +60,6 @@ const DESTINATION_FAILURE_LIMIT = 3;
 // create an e-mailer
 const emailer = new EMailer();
 
-// everything needed to send one card's notifications, with that card's images
-// already downloaded to disk
-type CardToSend = {
-    imagePaths: string[];
-    imageWebURIs: string[];
-    manaCost: string;
-    name: string;
-    oracleText: string;
-    typeLine: string;
-};
-
 // one place a notification can be delivered to, and the only unit the ledger
 // tracks. Unifying e-mail recipients and Discord servers behind one interface
 // is what lets the run loop record each delivery independently
@@ -71,75 +67,6 @@ type Destination = {
     id: DestinationId;
     name: string;
     send: (card: CardToSend) => Promise<void>;
-};
-
-const makeSubject = (cardsToSend: Array<{ name: string }>) => {
-    return `${
-        cardsToSend.length === 1
-            ? `New Card: [[${cardsToSend[0].name}]]`
-            : `${cardsToSend.length} New Cards`
-    }! MTG Spoiler Notification ${new Date().toLocaleString()}`;
-};
-
-const makeEmailHTML = (
-    cardsToSend: Array<{
-        imagePaths: string[];
-        name: string;
-        oracleText: string;
-        manaCost: string;
-        typeLine: string;
-    }>,
-) => {
-    return `<html>
-    <div>
-        This is an automated e-mail from <a href="https://github.com/nullromo/mtg-spoiler-notifier/">MTG Spoiler Notifier</a>.
-        <br />
-        <br />
-        The following ${
-            cardsToSend.length === 1
-                ? 'card has'
-                : `${cardsToSend.length} cards have`
-        } been added to Scryfall since the last notification was sent out.
-        <br />
-        <br />
-        ${cardsToSend
-            .map((card) => {
-                return card.imagePaths
-                    .map((_, index) => {
-                        const imageSrc = Util.nameToCID(card.name, index);
-                        return `<div>
-            ${card.name}${index > 0 ? ` (face ${index + 1})` : ''}
-            <br />
-            <div>${card.typeLine} ${
-                card.manaCost ? `${Symbols.dot} ${card.manaCost}` : ''
-            }</div>
-            <br />
-            <div>${card.oracleText}</div>
-            <br />
-            <img src="cid:${imageSrc}" />
-        </div>`;
-                    })
-                    .join('\n        <br />\n        ');
-            })
-            .join('\n        <br />\n        ')}
-    </div>
-</html>`;
-};
-
-const makeAttachments = (cardsToSend: CardToSend[]): AttachmentData[] => {
-    return Util.flattenArray(
-        cardsToSend.map((card) => {
-            return card.imagePaths.map((imagePath, index) => {
-                return {
-                    cid: Util.nameToCID(card.name, index),
-                    filename: `${card.name}${
-                        index > 0 ? `_face${index + 1}` : ''
-                    }.png`,
-                    path: imagePath,
-                };
-            });
-        }),
-    );
 };
 
 const sendEmail = async (recipient: EmailRecipient, card: CardToSend) => {
@@ -162,22 +89,13 @@ const sendDiscordMessage = async (
     discordServer: DiscordServer,
     card: CardToSend,
 ) => {
-    const content = `${makeSubject([card])}\n### ${card.name}\n${
-        card.typeLine
-    } ${card.manaCost ? `${Symbols.dot} ${card.manaCost}` : ''}\n${card.oracleText
-        // italicize reminder text
-        .replaceAll(/\(/g, '_(')
-        .replaceAll(/\)/g, ')_')}`;
     const embeds = card.imageWebURIs.map((path) => {
         return { image: { url: path } };
     });
     await axios.post(discordServer.webhookURI, {
-        // insert emoji
-        content: content.replaceAll(
-            /\{(?<match>.*?)\}/g,
-            (text, group1: string) => {
-                return discordServer.emojiDictionary[group1] ?? text;
-            },
+        content: finishDiscordContent(
+            makeDiscordContent(card),
+            discordServer.emojiDictionary,
         ),
         embeds,
     });
@@ -213,41 +131,24 @@ const activeIds = destinations.map((destination) => {
     return destination.id;
 });
 
-// fetch a single card's data and images from Scryfall and save the images
+// fetch a single card's detail and images from Scryfall and save the images
 const resolveCard = async (name: string): Promise<CardToSend> => {
-    // get the card details and image
-    const card = await ScryfallTools.getCard(name);
+    // get the card detail and images
+    const { card, images } = await ScryfallTools.getCard(name);
 
     // set up the image paths
-    const imagePaths = card.images.map((_, index) => {
+    const imagePaths = images.map((_, index) => {
         return `images/${name.replaceAll(/\//g, 'SLASH')}${
             index > 0 ? `_face${index + 1}` : ''
         }.png`;
     });
 
     // save the images
-    card.images.forEach((image, index) => {
+    images.forEach((image, index) => {
         fs.writeFileSync(imagePaths[index], image);
     });
 
-    return {
-        imagePaths,
-        imageWebURIs: card.data.image_uris
-            ? [card.data.image_uris.png]
-            : card.data.card_faces
-              ? card.data.card_faces.map((face) => {
-                    return face.image_uris.png;
-                })
-              : [],
-        manaCost:
-            card.data.mana_cost ??
-            `${card.data.card_faces?.[0].mana_cost} // ${card.data.card_faces?.[1].mana_cost}`,
-        name,
-        oracleText:
-            card.data.oracle_text ??
-            `${card.data.card_faces?.[0].oracle_text} // ${card.data.card_faces?.[1].oracle_text}`,
-        typeLine: card.data.type_line,
-    };
+    return { ...card, imagePaths };
 };
 
 // what the notifier has seen and what each destination is still owed

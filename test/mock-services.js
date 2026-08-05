@@ -10,6 +10,7 @@
 //   HARNESS_EMAIL_FAILS_FOR   substring of a recipient whose sends should fail
 //   HARNESS_DISCORD_FAILS_ON  substring of a webhook URI whose posts should fail
 //   NOTIFY_LOG                file to append one line per notification sent
+//   HARNESS_ATTACHMENT_LOG    file to append one line of e-mail attachment CIDs
 //
 // Every delivery is logged as "<destination>|<subject>", one line each, so a
 // scenario can assert not just that a card went out but exactly who received
@@ -37,6 +38,16 @@ const EMAIL_FAILS_ON = process.env.HARNESS_EMAIL_FAILS_ON || '';
 const EMAIL_FAILS_FOR = process.env.HARNESS_EMAIL_FAILS_FOR || '';
 const DISCORD_FAILS_ON = process.env.HARNESS_DISCORD_FAILS_ON || '';
 const NOTIFY_LOG = process.env.NOTIFY_LOG;
+const ATTACHMENT_LOG = process.env.HARNESS_ATTACHMENT_LOG || '';
+
+// A card whose faces do not collapse into one. Everything else here is a
+// single-faced card with no rarity and no page link, which is the right
+// default — it proves that a card missing those fields still renders and
+// still sends. This name is the other half: two faces with their own type
+// lines, mana costs and power/toughness, so a run really does write one image
+// file per face and build one attachment per face with a distinct content ID.
+// Nothing but a whole run exercises that wiring
+const TWO_FACED_CARD = 'Two Faced Test';
 
 // this file is the assertion surface: one line per notification that actually
 // went out, naming the destination that received it
@@ -91,6 +102,39 @@ axios.get = async (url) => {
             };
             throw error;
         }
+        if (name === TWO_FACED_CARD) {
+            // shaped like a transform card: no top-level image, no top-level
+            // type line or stats, everything inside card_faces
+            return {
+                data: {
+                    card_faces: [
+                        {
+                            image_uris: {
+                                png: 'https://cards.example/two-faced-front.png',
+                            },
+                            mana_cost: '{U}',
+                            name: 'Two Faced Front',
+                            oracle_text: 'Front face text.',
+                            power: '1',
+                            toughness: '1',
+                            type_line: 'Creature — Test',
+                        },
+                        {
+                            image_uris: {
+                                png: 'https://cards.example/two-faced-back.png',
+                            },
+                            name: 'Two Faced Back',
+                            oracle_text: 'Back face text.',
+                            power: '3',
+                            toughness: '2',
+                            type_line: 'Creature — Test Insect',
+                        },
+                    ],
+                    rarity: 'mythic',
+                    scryfall_uri: 'https://scryfall.example/two-faced-test',
+                },
+            };
+        }
         return {
             data: {
                 image_uris: {
@@ -143,6 +187,19 @@ nodemailer.createTransport = () => {
                     );
                 }, 0);
                 return;
+            }
+            if (ATTACHMENT_LOG) {
+                // one content ID per image the e-mail carries. The HTML
+                // references these by cid:, so a duplicate or a missing one
+                // means a face's picture never renders
+                fs.appendFileSync(
+                    ATTACHMENT_LOG,
+                    `${options.subject}|${(options.attachments || [])
+                        .map((attachment) => {
+                            return attachment.cid;
+                        })
+                        .join(',')}\n`,
+                );
             }
             logDelivery(`email:${options.to}`, options.subject);
             realSetTimeout(() => {

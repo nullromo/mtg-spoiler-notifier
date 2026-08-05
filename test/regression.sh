@@ -66,6 +66,7 @@ run_notifier() {
             HARNESS_EMAIL_FAILS_ON="$email_fails_on" \
             HARNESS_EMAIL_FAILS_FOR="${HARNESS_EMAIL_FAILS_FOR:-}" \
             HARNESS_DISCORD_FAILS_ON="${HARNESS_DISCORD_FAILS_ON:-}" \
+            HARNESS_ATTACHMENT_LOG="${HARNESS_ATTACHMENT_LOG:-}" \
             SECRET_GMAIL_APP_PASSWORD=test \
             SECRET_QUOYLES_QUARTERS_DISCORD_WEBHOOK=https://discord.invalid/a \
             SECRET_EAST_BAY_MAGIC_DISCORD_WEBHOOK=https://discord.invalid/b \
@@ -483,6 +484,68 @@ legacy_ledger_migrates_without_backfill() {
     fi
 }
 
+# ---------------------------------------------------------------------------
+# A double-faced card is the one shape where a card is not a single block of
+# text with a single picture, and nothing but a whole run drives that wiring:
+# one image file per face, one attachment per face, and a distinct content ID
+# for each so the HTML can reference them. The rendering itself is covered
+# directly in test/presentation.test.ts; what is proved here is that a card
+# with two faces still reaches every destination exactly once.
+# ---------------------------------------------------------------------------
+two_faced_card_is_delivered_whole() {
+    echo "double-faced card: one attachment per face, delivered once each"
+
+    local sandbox
+    sandbox="$(make_sandbox '["Two Faced Test"]' '[]' \
+        '["harness***AT***example.com"]')"
+    : >"$sandbox/notified.txt"
+    : >"$sandbox/attachments.txt"
+
+    local rc kept=false
+    HARNESS_ATTACHMENT_LOG="$sandbox/attachments.txt" \
+        run_notifier "$sandbox" "$sandbox/notified.txt" '[]' '' run.log
+    rc=$?
+
+    expect_delivered "$sandbox/notified.txt" 'email:harness@example.com' \
+        'Two Faced Test' "e-mail received it once" || kept=true
+    expect_delivered "$sandbox/notified.txt" \
+        'discord:https://discord.invalid/a' \
+        'Two Faced Test' "the first webhook received it once" || kept=true
+    expect_delivered "$sandbox/notified.txt" \
+        'discord:https://discord.invalid/b' \
+        'Two Faced Test' "the second webhook received it once" || kept=true
+
+    # two faces, two images, two attachments, two different content IDs
+    local cids distinct
+    cids="$(awk -F'|' 'NR == 1 { print $2 }' "$sandbox/attachments.txt")"
+    distinct="$(echo "$cids" | tr ',' '\n' | sed '/^$/d' | sort -u | wc -l)"
+    if [ "$distinct" -eq 2 ]; then
+        pass "carries a distinct attachment for each face"
+    else
+        fail "expected 2 distinct attachment CIDs, got $distinct: $cids"
+        kept=true
+    fi
+
+    # the run cleans up after itself however many images a card had
+    if [ -z "$(ls -A "$sandbox/images" 2>/dev/null)" ]; then
+        pass "removes both face images afterwards"
+    else
+        fail "left image files behind: $(ls -A "$sandbox/images")"
+        kept=true
+    fi
+
+    if [ "$rc" -ne 0 ]; then
+        fail "expected exit 0, got $rc"
+        kept=true
+    fi
+
+    if [ "$kept" = true ]; then
+        echo "        logs kept in $sandbox"
+    else
+        rm -rf "$sandbox"
+    fi
+}
+
 # a catalog too big to be a real batch of new cards, which is what the notifier
 # sees whenever it has no remembered list to compare against
 big_catalog() {
@@ -581,6 +644,9 @@ partial_email_failure_does_not_duplicate
 
 echo
 legacy_ledger_migrates_without_backfill
+
+echo
+two_faced_card_is_delivered_whole
 
 echo
 if [ "$failures" -gt 0 ]; then

@@ -1,6 +1,6 @@
 import type { DestinationId } from './deliveryLedger';
 
-type EmojiDictionary = Partial<Record<string, string>>;
+export type EmojiDictionary = Partial<Record<string, string>>;
 
 export class DiscordServer {
     // A permanent key, never edited. It is separate from `name` because `name`

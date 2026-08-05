@@ -58,3 +58,18 @@ _Avoid_: Deleted, removed, expired
 A card name that is in the catalog but that Scryfall will not return a card for.
 Ordinary and usually temporary; distinct from withdrawn.
 _Avoid_: Broken, missing, invalid
+
+**Card detail**:
+What Scryfall says a card is — its faces, its rarity and its page. Fetched
+fresh for each delivery and never stored: the ledger holds card names, not card
+detail, so nothing here can go stale.
+_Avoid_: Card data, card info, card to send
+
+**Face**:
+One printed side of a card. Type line, mana cost, oracle text and stats belong
+to a face; rarity and the Scryfall page belong to the card. The distinction is
+not pedantry — a double-faced card has different stats on each side, and
+flattening them into one line put the back face's text under the front face's
+picture. Faces do not correspond one-to-one with images: a split card prints
+both of its faces on a single one.
+_Avoid_: Side, half, mode

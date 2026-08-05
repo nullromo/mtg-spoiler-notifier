@@ -5,8 +5,9 @@
     "main": "src/main.ts",
     "scripts": {
         "main": "npx ts-node src/main.ts",
-        "test": "npm run test:ledger && npm run test:regression",
+        "test": "npm run test:ledger && npm run test:presentation && npm run test:regression",
         "test:ledger": "npx ts-node test/ledger.test.ts",
+        "test:presentation": "npx ts-node test/presentation.test.ts",
         "test:regression": "bash test/regression.sh"
     },
     "repository": {
