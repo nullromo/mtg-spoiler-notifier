@@ -168,20 +168,26 @@ test('one card names it, several count them', () => {
 section('makeEmailHTML: what a subscriber reads');
 
 test('anchors the card name to its Scryfall page', () => {
-    assert.ok(
-        makeEmailHTML([card({})]).includes(
-            '<a href="https://scryfall.example/alpha">Alpha</a>',
-        ),
-    );
+    const html = makeEmailHTML([card({})]);
+    assert.ok(html.includes('href="https://scryfall.example/alpha"'), html);
+    assert.ok(html.includes('>Alpha</a>'), html);
 });
 
-test('gives the rarity, capitalised', () => {
-    assert.ok(makeEmailHTML([card({})]).includes('Rare'));
+test('gives the rarity, capitalised and in its own colour', () => {
+    // the metal a reader recognises before they have read the word
+    const html = makeEmailHTML([card({ rarity: 'mythic' })]);
+    assert.ok(html.includes('>Mythic</span>'), html);
+    assert.ok(html.includes('#b04a24'), html);
 });
 
-test('a card with no rarity leaves no dangling separator', () => {
+test('a rarity Scryfall invents later still renders', () => {
+    const html = makeEmailHTML([card({ rarity: 'legendary' })]);
+    assert.ok(html.includes('>Legendary</span>'), html);
+});
+
+test('a card with no rarity has no chip at all', () => {
     const html = makeEmailHTML([card({ rarity: undefined })]);
-    assert.ok(!html.includes('Alpha</a> •'), html);
+    assert.ok(!html.includes('</span>'), html);
 });
 
 test('a card with no Scryfall page still names itself', () => {
@@ -207,11 +213,24 @@ test('each face carries its own power and toughness', () => {
 
 test('each face is named, and only when there is more than one', () => {
     const html = makeEmailHTML([twoFaced()]);
-    assert.ok(html.includes('<b>Delver of Secrets</b>'), html);
-    assert.ok(html.includes('<b>Insectile Aberration</b>'), html);
+    assert.ok(html.includes('>Delver of Secrets</div>'), html);
+    assert.ok(html.includes('>Insectile Aberration</div>'), html);
     // a single-faced card's one face is the card, so naming it again would
-    // just repeat the heading directly above it
-    assert.ok(!makeEmailHTML([card({})]).includes('<b>Alpha</b>'));
+    // just repeat the heading directly above it. The name appears once, in
+    // the heading, and nowhere else
+    const single = makeEmailHTML([card({})]);
+    assert.strictEqual(single.split('>Alpha<').length - 1, 1, single);
+});
+
+test('oracle text keeps the line breaks Scryfall put in it', () => {
+    // a planeswalker's abilities are one per line, and HTML does not honour
+    // a newline. Jace ran together into a single paragraph without this
+    const html = makeEmailHTML([
+        card({
+            faces: [face({ loyalty: '3', oracleText: '+2: Look.\n0: Draw.' })],
+        }),
+    ]);
+    assert.ok(html.includes('+2: Look.<br />0: Draw.'), html);
 });
 
 test('a face with no mana cost prints no empty separator', () => {
@@ -241,8 +260,8 @@ test('a split card, which prints two faces on one image, still renders', () => {
         name: 'Wear // Tear',
     });
     const html = makeEmailHTML([split]);
-    assert.ok(html.includes('<b>Wear</b>'), html);
-    assert.ok(html.includes('<b>Tear</b>'), html);
+    assert.ok(html.includes('>Wear</div>'), html);
+    assert.ok(html.includes('>Tear</div>'), html);
     // exactly one image, and no reference to a second one that was never
     // downloaded and never attached
     assert.strictEqual(html.split('<img ').length - 1, 1, html);

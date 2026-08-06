@@ -89,41 +89,124 @@ export const makeSubject = (cardsToSend: Array<{ name: string }>) => {
     }! MTG Spoiler Notification ${new Date().toLocaleString()}`;
 };
 
+// The e-mail's palette and type, written out here as plain values because
+// every one of them has to be repeated inline on the element that uses it.
+// Mail clients are not browsers: a <style> block is discarded by enough of
+// them to be untrustworthy, custom properties are not understood at all, and
+// there is no cascade worth relying on. So the identity lives in these
+// constants and is spent through the helpers below
+const INK = '#171a21';
+const MUTED = '#5b6371';
+const RULE = '#d2d7e0';
+const GOLD = '#8d6a29';
+const GROUND = '#eceef2';
+const SURFACE = '#ffffff';
+
+// Magic prints its rarities in metal, and a reader picks the colour out
+// faster than the word. Anything Scryfall invents later falls back to the
+// body colour rather than going uncoloured or throwing
+const RARITY_COLOURS: Partial<Record<string, string>> = {
+    bonus: '#6f7d85',
+    common: '#4d5563',
+    mythic: '#b04a24',
+    rare: '#8d6a29',
+    special: '#b04a24',
+    uncommon: '#6f7d85',
+};
+
+// Georgia for the card's name and a system stack for everything else. Both
+// are faces that are already on the machine reading the mail — a webfont
+// would have to be fetched, and a mail client will not fetch it
+const DISPLAY_FONT = "Georgia, 'Times New Roman', serif";
+const BODY_FONT = "-apple-system, 'Segoe UI', Roboto, Arial, sans-serif";
+
+// longhand rather than the `font` shorthand, which enough clients mangle
+const type = (
+    size: number,
+    colour: string,
+    weight: number,
+    lineHeight: number,
+    family = BODY_FONT,
+) => {
+    return `font-family:${family};font-size:${size}px;font-weight:${weight};line-height:${lineHeight};color:${colour};`;
+};
+
 const emailImage = (card: CardToSend, index: number) => {
-    return `<img src="cid:${Util.nameToCID(card.name, index)}" />`;
+    return `<img src="cid:${Util.nameToCID(
+        card.name,
+        index,
+    )}" style="border:1px solid ${RULE};display:block;margin-top:14px;max-width:100%;width:280px;" />`;
 };
 
 const emailFaceLines = (card: CardToSend, face: Face, index: number) => {
     const lines: string[] = [];
     if (facesAreLabelled(card)) {
-        lines.push(`<div><b>${faceHeading(card, index)}</b></div>`);
+        lines.push(
+            `<div style="${type(13, INK, 700, 1.4)}">${faceHeading(
+                card,
+                index,
+            )}</div>`,
+        );
     }
     const stats = joinParts([face.typeLine, face.manaCost, formatStats(face)]);
     if (stats !== '') {
-        lines.push(`<div>${stats}</div>`);
+        lines.push(
+            `<div style="${type(13, MUTED, 400, 1.5)}margin-top:2px;">${stats}</div>`,
+        );
     }
     if (face.oracleText !== '') {
-        lines.push('<br />');
-        lines.push(`<div>${face.oracleText}</div>`);
+        // Scryfall separates a card's abilities with newlines, and HTML does
+        // not. Without this every one of Jace's four abilities ran together
+        // into a single paragraph, which is exactly the card that most needs
+        // them apart
+        lines.push(
+            `<div style="${type(14, INK, 400, 1.6)}margin-top:10px;">${face.oracleText.replaceAll(
+                '\n',
+                '<br />',
+            )}</div>`,
+        );
     }
     return lines;
 };
 
+const emailRarityChip = (rarity: string | undefined) => {
+    const label = formatRarity(rarity);
+    if (label === undefined) {
+        return '';
+    }
+    const colour = RARITY_COLOURS[rarity ?? ''] ?? MUTED;
+    return `<div style="margin-top:8px;"><span style="border:1px solid ${colour};${type(
+        10,
+        colour,
+        600,
+        1.4,
+    )}letter-spacing:1.2px;padding:2px 6px;text-transform:uppercase;">${label}</span></div>`;
+};
+
 const emailCardLines = (card: CardToSend) => {
     // the name doubles as the link to the card's Scryfall page, so there is no
-    // second control doing the same job further down
-    const heading =
+    // second control doing the same job further down. It is underlined in the
+    // accent rather than the usual link blue, which would be the one loud
+    // colour on the page and would not mean anything
+    const name =
         card.scryfallURI === undefined
             ? card.name
-            : `<a href="${card.scryfallURI}">${card.name}</a>`;
-    const lines = [joinParts([heading, formatRarity(card.rarity)]), '<br />'];
+            : `<a href="${card.scryfallURI}" style="color:${INK};text-decoration:none;border-bottom:1px solid ${GOLD};">${card.name}</a>`;
+    const lines = [
+        `<div style="${type(23, INK, 400, 1.25, DISPLAY_FONT)}">${name}</div>`,
+    ];
+    const chip = emailRarityChip(card.rarity);
+    if (chip !== '') {
+        lines.push(chip);
+    }
     const paired = imagesPairWithFaces(card);
     card.faces.forEach((face, index) => {
+        lines.push('<div style="margin-top:18px;">');
         lines.push(...emailFaceLines(card, face, index));
-        lines.push('<br />');
         if (paired) {
             lines.push(emailImage(card, index));
         }
+        lines.push('</div>');
     });
     if (!paired) {
         card.imagePaths.forEach((_, index) => {
@@ -134,26 +217,47 @@ const emailCardLines = (card: CardToSend) => {
 };
 
 export const makeEmailHTML = (cardsToSend: CardToSend[]) => {
+    const intro = `The following ${
+        cardsToSend.length === 1
+            ? 'card has'
+            : `${cardsToSend.length} cards have`
+    } been added to Scryfall since the last notification was sent out.`;
     return `<html>
-    <div>
-        This is an automated e-mail from <a href="https://github.com/nullromo/mtg-spoiler-notifier/">MTG Spoiler Notifier</a>.
-        <br />
-        <br />
-        The following ${
-            cardsToSend.length === 1
-                ? 'card has'
-                : `${cardsToSend.length} cards have`
-        } been added to Scryfall since the last notification was sent out.
-        <br />
-        <br />
+<head>
+<meta name="color-scheme" content="light only" />
+<meta name="supported-color-schemes" content="light only" />
+</head>
+<body style="background:${GROUND};margin:0;padding:24px 12px;">
+    <div style="background:${SURFACE};border:1px solid ${RULE};margin:0 auto;max-width:640px;padding:28px;">
+        <div style="${type(
+            11,
+            GOLD,
+            600,
+            1.4,
+        )}letter-spacing:1.4px;text-transform:uppercase;">MTG Spoiler Notifier</div>
+        <div style="${type(
+            13,
+            MUTED,
+            400,
+            1.6,
+        )}border-bottom:1px solid ${RULE};padding:6px 0 18px;">${intro}</div>
         ${cardsToSend
             .map((card) => {
-                return `<div>
+                return `<div style="padding-top:24px;">
             ${emailCardLines(card).join('\n            ')}
         </div>`;
             })
-            .join('\n        <br />\n        ')}
+            .join(
+                `\n        <div style="border-top:1px solid ${RULE};margin-top:28px;"></div>\n        `,
+            )}
+        <div style="${type(
+            11,
+            MUTED,
+            400,
+            1.5,
+        )}border-top:1px solid ${RULE};margin-top:28px;padding-top:14px;">Sent automatically by <a href="https://github.com/nullromo/mtg-spoiler-notifier/" style="color:${MUTED};">MTG Spoiler Notifier</a>.</div>
     </div>
+</body>
 </html>`;
 };
 
