@@ -167,10 +167,19 @@ test('one card names it, several count them', () => {
 // ---------------------------------------------------------------------------
 section('makeEmailHTML: what a subscriber reads');
 
-test('anchors the card name to its Scryfall page', () => {
+test('leaves the card name as plain, selectable text', () => {
+    // long-pressing a link on a phone opens the link menu rather than
+    // selecting the text under it, so the name must not be a link — copying
+    // it out is the thing this e-mail is most often used for
+    const html = makeEmailHTML([card({})]);
+    assert.ok(!html.includes('>Alpha</a>'), html);
+    assert.ok(html.includes('>Alpha</div>'), html);
+});
+
+test('links to the Scryfall page separately', () => {
     const html = makeEmailHTML([card({})]);
     assert.ok(html.includes('href="https://scryfall.example/alpha"'), html);
-    assert.ok(html.includes('>Alpha</a>'), html);
+    assert.ok(html.includes('>Scryfall</a>'), html);
 });
 
 test('gives the rarity, capitalised and in its own colour', () => {
@@ -220,6 +229,12 @@ test('each face is named, and only when there is more than one', () => {
     // the heading, and nowhere else
     const single = makeEmailHTML([card({})]);
     assert.strictEqual(single.split('>Alpha<').length - 1, 1, single);
+});
+
+test('the Scryfall link survives a card with no rarity', () => {
+    // both halves of that line are optional independently
+    const html = makeEmailHTML([card({ rarity: undefined })]);
+    assert.ok(html.includes('>Scryfall</a>'), html);
 });
 
 test('oracle text keeps the line breaks Scryfall put in it', () => {

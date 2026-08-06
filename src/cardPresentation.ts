@@ -169,36 +169,48 @@ const emailFaceLines = (card: CardToSend, face: Face, index: number) => {
     return lines;
 };
 
+const emailScryfallLink = (card: CardToSend) => {
+    if (card.scryfallURI === undefined) {
+        return '';
+    }
+    return `<a href="${card.scryfallURI}" style="${type(
+        12,
+        GOLD,
+        600,
+        1.4,
+    )}display:inline-block;padding:4px 0;text-decoration:none;border-bottom:1px solid ${GOLD};">Scryfall</a>`;
+};
+
 const emailRarityChip = (rarity: string | undefined) => {
     const label = formatRarity(rarity);
     if (label === undefined) {
         return '';
     }
     const colour = RARITY_COLOURS[rarity ?? ''] ?? MUTED;
-    return `<div style="margin-top:8px;"><span style="border:1px solid ${colour};${type(
+    return `<span style="border:1px solid ${colour};${type(
         10,
         colour,
         600,
         1.4,
-    )}letter-spacing:1.2px;padding:2px 6px;text-transform:uppercase;">${label}</span></div>`;
+    )}letter-spacing:1.2px;margin-right:12px;padding:2px 6px;text-transform:uppercase;">${label}</span>`;
 };
 
 const emailCardLines = (card: CardToSend) => {
-    // the name doubles as the link to the card's Scryfall page, so there is no
-    // second control doing the same job further down. It is underlined in the
-    // accent rather than the usual link blue, which would be the one loud
-    // colour on the page and would not mean anything
-    const name =
-        card.scryfallURI === undefined
-            ? card.name
-            : `<a href="${card.scryfallURI}" style="color:${INK};text-decoration:none;border-bottom:1px solid ${GOLD};">${card.name}</a>`;
+    // Deliberately plain text rather than a link. On a phone, long-pressing a
+    // link opens the link menu instead of selecting the text under it, so
+    // making the name the link made the name the one thing on the card that
+    // could not be copied out. The Scryfall link lives on its own below
     const lines = [
-        `<div style="${type(23, INK, 400, 1.25, DISPLAY_FONT)}">${name}</div>`,
+        `<div style="${type(23, INK, 400, 1.25, DISPLAY_FONT)}">${
+            card.name
+        }</div>`,
     ];
-    const chip = emailRarityChip(card.rarity);
-    if (chip !== '') {
-        lines.push(chip);
-    }
+    // the rarity and the link that leaves, on one line
+    lines.push(
+        `<div style="margin-top:8px;">${emailRarityChip(
+            card.rarity,
+        )}${emailScryfallLink(card)}</div>`,
+    );
     const paired = imagesPairWithFaces(card);
     card.faces.forEach((face, index) => {
         lines.push('<div style="margin-top:18px;">');
