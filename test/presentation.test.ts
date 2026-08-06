@@ -12,8 +12,10 @@
 // test/regression.sh covers the artifact hand-off those rules ride on.
 
 import assert from 'assert';
+import fs from 'fs';
 import type { CardToSend } from '../src/cardPresentation';
 import {
+    SCRYFALL_LOGO_CID,
     faceHeading,
     finishDiscordContent,
     formatStats,
@@ -54,6 +56,21 @@ const face = (overrides: Partial<Face>): Face => {
         typeLine: 'Creature — Test',
         ...overrides,
     };
+};
+
+// the attachments for the cards themselves, with the Scryfall logo — which
+// rides along on every linked message — set aside
+const cardAttachments = (cards: CardToSend[]) => {
+    return makeAttachments(cards).filter((attachment) => {
+        return attachment.cid !== SCRYFALL_LOGO_CID;
+    });
+};
+
+// how many pictures of cards the message shows, not counting the logo in the
+// Scryfall button
+const cardImageCount = (html: string) => {
+    const all = html.split('<img ').length - 1;
+    return html.includes(`cid:${SCRYFALL_LOGO_CID}`) ? all - 1 : all;
 };
 
 const card = (overrides: Partial<CardToSend>): CardToSend => {
@@ -176,10 +193,43 @@ test('leaves the card name as plain, selectable text', () => {
     assert.ok(html.includes('>Alpha</div>'), html);
 });
 
-test('links to the Scryfall page separately', () => {
+test('links to the Scryfall page as a branded button', () => {
     const html = makeEmailHTML([card({})]);
     assert.ok(html.includes('href="https://scryfall.example/alpha"'), html);
-    assert.ok(html.includes('>Scryfall</a>'), html);
+    assert.ok(html.includes('>Scryfall</span>'), html);
+    // Scryfall's own purple, with the gradient layered over it so a client
+    // that ignores linear-gradient keeps the flat colour rather than nothing
+    assert.ok(html.includes('background:#6f3d75;'), html);
+    assert.ok(html.includes('linear-gradient(#6f3d75,#4e737f)'), html);
+    assert.ok(html.includes(`cid:${SCRYFALL_LOGO_CID}`), html);
+});
+
+test('carries the logo as an attachment, once, only when linked', () => {
+    // the button references it by content ID, so the file has to be there —
+    // a remote image would be blocked by default in most clients
+    const withLink = makeAttachments([card({})]).filter((attachment) => {
+        return attachment.cid === SCRYFALL_LOGO_CID;
+    });
+    assert.strictEqual(withLink.length, 1);
+    assert.ok(withLink[0].path.endsWith('assets/scryfall-logo.png'));
+
+    const withoutLink = makeAttachments([card({ scryfallURI: undefined })]);
+    assert.ok(
+        !withoutLink.some((attachment) => {
+            return attachment.cid === SCRYFALL_LOGO_CID;
+        }),
+        JSON.stringify(withoutLink),
+    );
+});
+
+test('the logo file the button points at actually exists', () => {
+    // the path is resolved against the source file rather than the working
+    // directory, because the notifier is not always run from the repo root
+    const logo = makeAttachments([card({})]).find((attachment) => {
+        return attachment.cid === SCRYFALL_LOGO_CID;
+    });
+    assert.ok(logo !== undefined);
+    assert.ok(fs.existsSync(logo.path), logo.path);
 });
 
 test('gives the rarity, capitalised and in its own colour', () => {
@@ -196,7 +246,9 @@ test('a rarity Scryfall invents later still renders', () => {
 
 test('a card with no rarity has no chip at all', () => {
     const html = makeEmailHTML([card({ rarity: undefined })]);
-    assert.ok(!html.includes('</span>'), html);
+    // the Scryfall button has a <span> of its own, so look for a rarity word
+    // sitting in an element rather than for the tag
+    assert.ok(!/>(?:Common|Uncommon|Rare|Mythic)</.test(html), html);
 });
 
 test('a card with no Scryfall page still names itself', () => {
@@ -231,10 +283,10 @@ test('each face is named, and only when there is more than one', () => {
     assert.strictEqual(single.split('>Alpha<').length - 1, 1, single);
 });
 
-test('the Scryfall link survives a card with no rarity', () => {
+test('the Scryfall button survives a card with no rarity', () => {
     // both halves of that line are optional independently
     const html = makeEmailHTML([card({ rarity: undefined })]);
-    assert.ok(html.includes('>Scryfall</a>'), html);
+    assert.ok(html.includes('>Scryfall</span>'), html);
 });
 
 test('oracle text keeps the line breaks Scryfall put in it', () => {
@@ -255,7 +307,7 @@ test('a face with no mana cost prints no empty separator', () => {
 
 test('every image is referenced by a content ID', () => {
     const html = makeEmailHTML([twoFaced()]);
-    const attachments = makeAttachments([twoFaced()]);
+    const attachments = cardAttachments([twoFaced()]);
     assert.strictEqual(attachments.length, 2);
     attachments.forEach((attachment) => {
         assert.ok(html.includes(`cid:${attachment.cid}`), attachment.cid);
@@ -279,8 +331,8 @@ test('a split card, which prints two faces on one image, still renders', () => {
     assert.ok(html.includes('>Tear</div>'), html);
     // exactly one image, and no reference to a second one that was never
     // downloaded and never attached
-    assert.strictEqual(html.split('<img ').length - 1, 1, html);
-    assert.strictEqual(makeAttachments([split]).length, 1);
+    assert.strictEqual(cardImageCount(html), 1, html);
+    assert.strictEqual(cardAttachments([split]).length, 1);
 });
 
 // ---------------------------------------------------------------------------

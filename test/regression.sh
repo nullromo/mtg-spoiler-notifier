@@ -515,14 +515,29 @@ two_faced_card_is_delivered_whole() {
         'discord:https://discord.invalid/b' \
         'Two Faced Test' "the second webhook received it once" || kept=true
 
-    # two faces, two images, two attachments, two different content IDs
-    local cids distinct
+    # two faces, two images, two attachments, two different content IDs. The
+    # Scryfall button's logo rides along on the same message and is counted
+    # separately, because it is one per message rather than one per face
+    local cids faces logos
     cids="$(awk -F'|' 'NR == 1 { print $2 }' "$sandbox/attachments.txt")"
-    distinct="$(echo "$cids" | tr ',' '\n' | sed '/^$/d' | sort -u | wc -l)"
-    if [ "$distinct" -eq 2 ]; then
+    faces="$(echo "$cids" | tr ',' '\n' | sed '/^$/d' |
+        grep -vc '^scryfall-logo$')"
+    logos="$(echo "$cids" | tr ',' '\n' | grep -c '^scryfall-logo$')"
+
+    if [ "$faces" -eq 2 ] &&
+        [ "$(echo "$cids" | tr ',' '\n' | grep -v '^scryfall-logo$' |
+            sort -u | wc -l)" -eq 2 ]; then
         pass "carries a distinct attachment for each face"
     else
-        fail "expected 2 distinct attachment CIDs, got $distinct: $cids"
+        fail "expected 2 distinct face attachments, got $faces: $cids"
+        kept=true
+    fi
+
+    # exactly one: the button shows it once however many faces the card has
+    if [ "$logos" -eq 1 ]; then
+        pass "carries the Scryfall logo once"
+    else
+        fail "expected 1 Scryfall logo attachment, got $logos: $cids"
         kept=true
     fi
 

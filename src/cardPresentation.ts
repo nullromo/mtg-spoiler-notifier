@@ -6,6 +6,7 @@
 // describe a card through the same handful of helpers, so a change to how a
 // planeswalker's loyalty is written reaches both or neither.
 
+import path from 'path';
 import type { EmojiDictionary } from './discordData';
 import type { AttachmentData } from './e-mail';
 import type { CardDetail, Face } from './scryfallTools';
@@ -169,16 +170,40 @@ const emailFaceLines = (card: CardToSend, face: Face, index: number) => {
     return lines;
 };
 
+// Scryfall's own colours, read off their app icon: the mark is a vertical
+// gradient between these two
+const SCRYFALL_PURPLE = '#6f3d75';
+const SCRYFALL_TEAL = '#4e737f';
+
+// The logo travels with the message rather than being linked to. A remote
+// image is blocked by default in most clients, and hotlinking somebody
+// else's asset on a schedule is rude; a content ID always renders, which is
+// how the card images already work
+export const SCRYFALL_LOGO_CID = 'scryfall-logo';
+
+// Resolved against this file rather than the working directory, because the
+// notifier is not always run from the repo root — the regression harness runs
+// it from a sandbox
+const SCRYFALL_LOGO_PATH = path.join(
+    __dirname,
+    '..',
+    'assets',
+    'scryfall-logo.png',
+);
+
 const emailScryfallLink = (card: CardToSend) => {
     if (card.scryfallURI === undefined) {
         return '';
     }
-    return `<a href="${card.scryfallURI}" style="${type(
+    // background-color first and background-image second: a client that has
+    // never heard of linear-gradient keeps the flat purple, which is the
+    // gradient's top end, so it degrades rather than falling back to nothing
+    return `<a href="${card.scryfallURI}" style="background:${SCRYFALL_PURPLE};background-image:linear-gradient(${SCRYFALL_PURPLE},${SCRYFALL_TEAL});border-radius:4px;${type(
         12,
-        GOLD,
+        '#ffffff',
         600,
-        1.4,
-    )}display:inline-block;padding:4px 0;text-decoration:none;border-bottom:1px solid ${GOLD};">Scryfall</a>`;
+        1,
+    )}display:inline-block;padding:6px 12px;text-decoration:none;"><img src="cid:${SCRYFALL_LOGO_CID}" width="14" height="14" alt="" style="border:0;border-radius:3px;display:inline-block;margin-right:6px;vertical-align:middle;" /><span style="vertical-align:middle;">Scryfall</span></a>`;
 };
 
 const emailRarityChip = (rarity: string | undefined) => {
@@ -276,7 +301,7 @@ export const makeEmailHTML = (cardsToSend: CardToSend[]) => {
 export const makeAttachments = (
     cardsToSend: CardToSend[],
 ): AttachmentData[] => {
-    return Util.flattenArray(
+    const cardImages = Util.flattenArray(
         cardsToSend.map((card) => {
             return card.imagePaths.map((imagePath, index) => {
                 return {
@@ -289,6 +314,23 @@ export const makeAttachments = (
             });
         }),
     );
+
+    // only worth carrying if something in this message actually shows it
+    const anyLinked = cardsToSend.some((card) => {
+        return card.scryfallURI !== undefined;
+    });
+    if (!anyLinked) {
+        return cardImages;
+    }
+
+    return [
+        ...cardImages,
+        {
+            cid: SCRYFALL_LOGO_CID,
+            filename: 'scryfall.png',
+            path: SCRYFALL_LOGO_PATH,
+        },
+    ];
 };
 
 export const makeDiscordContent = (card: CardToSend) => {
