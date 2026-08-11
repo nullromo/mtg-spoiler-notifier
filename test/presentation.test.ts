@@ -184,6 +184,40 @@ test('one card names it, several count them', () => {
 // ---------------------------------------------------------------------------
 section('makeEmailHTML: what a subscriber reads');
 
+test('shows the card before it says anything about it', () => {
+    // issue #13: the picture used to sit below the name, the rarity and the
+    // oracle text, and under a planeswalker's worth of text that put it off
+    // the bottom of a phone screen. Nothing goes above it now
+    const html = makeEmailHTML([card({})]);
+    const image = html.indexOf('<img ');
+    assert.ok(image > -1, html);
+    assert.ok(html.indexOf('>Alpha</div>') > image, html);
+    assert.ok(html.indexOf('Oracle text.') > image, html);
+    // the first picture in the message is the card, not the logo riding along
+    // in the Scryfall button
+    assert.ok(html.indexOf(`cid:${SCRYFALL_LOGO_CID}`) > image, html);
+});
+
+test('a double-faced card leads with both of its pictures', () => {
+    const html = makeEmailHTML([twoFaced()]);
+    const heading = html.indexOf('Delver of Secrets // Insectile Aberration');
+    assert.ok(heading > -1, html);
+    assert.strictEqual(cardImageCount(html.slice(0, heading)), 2, html);
+});
+
+test('the line that introduced the cards now closes the message', () => {
+    // it points upwards at them, so it has to read in the past tense and it
+    // has to be below them
+    const one = makeEmailHTML([card({})]);
+    assert.ok(
+        one.indexOf('The card above was added to Scryfall') >
+            one.indexOf('<img '),
+        one,
+    );
+    const two = makeEmailHTML([card({}), card({ name: 'Beta' })]);
+    assert.ok(two.includes('The 2 cards above were added to Scryfall'), two);
+});
+
 test('leaves the card name as plain, selectable text', () => {
     // long-pressing a link on a phone opens the link menu rather than
     // selecting the text under it, so the name must not be a link — copying

@@ -74,14 +74,6 @@ const facesAreLabelled = (card: CardToSend) => {
     return card.faces.length > 1;
 };
 
-// Whether each image belongs under one particular face. A transform card
-// downloads one image per face and they pair off; a split card prints both of
-// its faces on a single image, so there is no face to attach it to and it
-// follows the text instead
-const imagesPairWithFaces = (card: CardToSend) => {
-    return card.imagePaths.length === card.faces.length;
-};
-
 export const makeSubject = (cardsToSend: Array<{ name: string }>) => {
     return `${
         cardsToSend.length === 1
@@ -132,11 +124,15 @@ const type = (
     return `font-family:${family};font-size:${size}px;font-weight:${weight};line-height:${lineHeight};color:${colour};`;
 };
 
+// The first picture opens the message, so it needs no gap above it; the rest
+// are spaced off the one before
 const emailImage = (card: CardToSend, index: number) => {
     return `<img src="cid:${Util.nameToCID(
         card.name,
         index,
-    )}" style="border:1px solid ${RULE};display:block;margin-top:14px;max-width:100%;width:280px;" />`;
+    )}" style="border:1px solid ${RULE};display:block;${
+        index === 0 ? '' : 'margin-top:14px;'
+    }max-width:100%;width:280px;" />`;
 };
 
 const emailFaceLines = (card: CardToSend, face: Face, index: number) => {
@@ -221,44 +217,51 @@ const emailRarityChip = (rarity: string | undefined) => {
 };
 
 const emailCardLines = (card: CardToSend) => {
+    // The pictures come first. A card read on a phone used to sit below its
+    // own name, rarity and oracle text, which on anything as wordy as a
+    // planeswalker meant scrolling to see the card at all. Every image goes
+    // up here, ahead of everything that describes them, so that opening the
+    // mail shows the card itself. A double-faced card stacks both sides in
+    // the order its faces are written out below
+    const lines = card.imagePaths.map((_, index) => {
+        return emailImage(card, index);
+    });
     // Deliberately plain text rather than a link. On a phone, long-pressing a
     // link opens the link menu instead of selecting the text under it, so
     // making the name the link made the name the one thing on the card that
     // could not be copied out. The Scryfall link lives on its own below
-    const lines = [
-        `<div style="${type(23, INK, 400, 1.25, DISPLAY_FONT)}">${
-            card.name
-        }</div>`,
-    ];
+    lines.push(
+        `<div style="${type(
+            23,
+            INK,
+            400,
+            1.25,
+            DISPLAY_FONT,
+        )}margin-top:18px;">${card.name}</div>`,
+    );
     // the rarity and the link that leaves, on one line
     lines.push(
         `<div style="margin-top:8px;">${emailRarityChip(
             card.rarity,
         )}${emailScryfallLink(card)}</div>`,
     );
-    const paired = imagesPairWithFaces(card);
     card.faces.forEach((face, index) => {
         lines.push('<div style="margin-top:18px;">');
         lines.push(...emailFaceLines(card, face, index));
-        if (paired) {
-            lines.push(emailImage(card, index));
-        }
         lines.push('</div>');
     });
-    if (!paired) {
-        card.imagePaths.forEach((_, index) => {
-            lines.push(emailImage(card, index));
-        });
-    }
     return lines;
 };
 
 export const makeEmailHTML = (cardsToSend: CardToSend[]) => {
-    const intro = `The following ${
+    // This used to introduce the cards from above them. Nothing gets to sit
+    // between the top of the message and the first picture any more, so it
+    // closes the message instead and points back up at what it describes
+    const outro = `${
         cardsToSend.length === 1
-            ? 'card has'
-            : `${cardsToSend.length} cards have`
-    } been added to Scryfall since the last notification was sent out.`;
+            ? 'The card above was'
+            : `The ${cardsToSend.length} cards above were`
+    } added to Scryfall since the last notification was sent out.`;
     return `<html>
 <head>
 <meta name="color-scheme" content="light only" />
@@ -266,21 +269,9 @@ export const makeEmailHTML = (cardsToSend: CardToSend[]) => {
 </head>
 <body style="background:${GROUND};margin:0;padding:24px 12px;">
     <div style="background:${SURFACE};border:1px solid ${RULE};margin:0 auto;max-width:640px;padding:28px;">
-        <div style="${type(
-            11,
-            GOLD,
-            600,
-            1.4,
-        )}letter-spacing:1.4px;text-transform:uppercase;">MTG Spoiler Notifier</div>
-        <div style="${type(
-            13,
-            MUTED,
-            400,
-            1.6,
-        )}border-bottom:1px solid ${RULE};padding:6px 0 18px;">${intro}</div>
         ${cardsToSend
-            .map((card) => {
-                return `<div style="padding-top:24px;">
+            .map((card, index) => {
+                return `<div style="padding-top:${index === 0 ? 0 : 24}px;">
             ${emailCardLines(card).join('\n            ')}
         </div>`;
             })
@@ -288,11 +279,17 @@ export const makeEmailHTML = (cardsToSend: CardToSend[]) => {
                 `\n        <div style="border-top:1px solid ${RULE};margin-top:28px;"></div>\n        `,
             )}
         <div style="${type(
+            13,
+            MUTED,
+            400,
+            1.6,
+        )}border-top:1px solid ${RULE};margin-top:28px;padding-top:14px;">${outro}</div>
+        <div style="${type(
             11,
             MUTED,
             400,
             1.5,
-        )}border-top:1px solid ${RULE};margin-top:28px;padding-top:14px;">Sent automatically by <a href="https://github.com/nullromo/mtg-spoiler-notifier/" style="color:${MUTED};">MTG Spoiler Notifier</a>.</div>
+        )}margin-top:10px;">Sent automatically by <a href="https://github.com/nullromo/mtg-spoiler-notifier/" style="color:${GOLD};font-weight:600;letter-spacing:0.4px;">MTG Spoiler Notifier</a>.</div>
     </div>
 </body>
 </html>`;
