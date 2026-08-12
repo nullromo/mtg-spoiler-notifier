@@ -518,13 +518,37 @@ test('a long card list is printed in full, on one line', () => {
     });
     const formatted = Util.formatList(names);
     assert.strictEqual(formatted.split('\n').length, 1);
-    assert.ok(formatted.startsWith('Card 0, Card 1,'), formatted);
-    assert.ok(formatted.endsWith('Card 299'), formatted);
+    assert.ok(formatted.startsWith('"Card 0", "Card 1",'), formatted);
+    assert.ok(formatted.endsWith('"Card 299"'), formatted);
 });
 
 test('a short card list is printed in full, and an empty one reads as none', () => {
-    assert.strictEqual(Util.formatList(['Alpha', 'Bravo']), 'Alpha, Bravo');
+    assert.strictEqual(
+        Util.formatList(['Alpha', 'Bravo']),
+        '"Alpha", "Bravo"',
+    );
     assert.strictEqual(Util.formatList([]), 'none');
+});
+
+test('a name with a comma in it is still one name', () => {
+    // three cards, not five: an unquoted list of these read as five names in
+    // the run log, which is the whole reason the quotes are there
+    assert.strictEqual(
+        Util.formatList([
+            'Christine Chapel, Combat Medic',
+            'General Chang, Cold Warrior',
+            'Open Communications',
+        ]),
+        '"Christine Chapel, Combat Medic", "General Chang, Cold Warrior", "Open Communications"',
+    );
+});
+
+test('a name with quotation marks in it survives being quoted', () => {
+    // Unstable printed one, so this is not hypothetical
+    assert.strictEqual(
+        Util.formatList(['"Rumors of My Death . . ."']),
+        '"\\"Rumors of My Death . . .\\""',
+    );
 });
 
 test('the summary names every active destination, even the caught-up ones', () => {

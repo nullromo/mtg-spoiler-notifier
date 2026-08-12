@@ -49,13 +49,25 @@ export class Util {
         return String(error);
     };
 
-    // "Alpha, Bravo, Charlie". Every name, on one line however many there are:
-    // knowing exactly which cards were detected or are still owed is worth more
-    // than a shorter line, and one long line costs nothing to scroll past. The
-    // old util.inspect version was the expensive one — it pretty-printed an
-    // array across a line per entry
+    // `"Alpha", "Bravo", "Charlie"`. Every name, on one line however many there
+    // are: knowing exactly which cards were detected or are still owed is worth
+    // more than a shorter line, and one long line costs nothing to scroll past.
+    // The old util.inspect version was the expensive one — it pretty-printed an
+    // array across a line per entry.
+    //
+    // The quotes are load-bearing. A great many card names contain a comma, so
+    // three of them unquoted — Christine Chapel, Combat Medic, General Chang,
+    // Cold Warrior, Open Communications — read as five. JSON.stringify rather
+    // than adding quotes by hand because a handful of names contain quotation
+    // marks too, "Rumors of My Death . . ." among them
     public static formatList = (items: string[]) => {
-        return items.length === 0 ? 'none' : items.join(', ');
+        return items.length === 0
+            ? 'none'
+            : items
+                  .map((item) => {
+                      return JSON.stringify(item);
+                  })
+                  .join(', ');
     };
 
     public static flattenArray = <T>(array: Array<T | T[]>) => {
