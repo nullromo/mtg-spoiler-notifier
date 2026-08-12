@@ -38,8 +38,11 @@ jobs:
       - name: Type-check
         run: npx tsc --noEmit
 
+      # test/ is linted too, which needs tsconfig.eslint.json: the type-aware
+      # rules only see a file that belongs to a project, and tsconfig.json
+      # includes src alone
       - name: Lint
-        run: npx eslint src --ext .ts
+        run: npx eslint src test --ext .ts
 
       # Both suites are fully offline: test/mock-services.js replaces Scryfall,
       # Gmail and Discord with local fakes, so no secrets are needed and nothing
