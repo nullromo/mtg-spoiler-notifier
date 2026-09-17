@@ -313,9 +313,23 @@ let safeToSaveLedger = false;
                 Util.describeError(error),
             );
             stats.fetchFailures += 1;
+            // starts the clock the first time, and leaves it running after
+            // that. Nothing here fails the run: a name Scryfall has not put a
+            // card behind yet is ordinary, and only one that stays that way for
+            // a week is a problem. See UNFETCHABLE_GRACE_MS
+            ledger = DeliveryLedger.markUnfetchable(
+                ledger,
+                cardName,
+                new Date(),
+            );
             ledger = DeliveryLedger.rotateToBack(ledger, cardName);
             continue;
         }
+
+        // Scryfall produced the card, so whatever was wrong with this name is
+        // over. Cleared before any delivery is attempted, because a delivery
+        // that fails says nothing about whether the card can be fetched
+        ledger = DeliveryLedger.clearUnfetchable(ledger, cardName);
 
         let anyDelivered = false;
         for (const destinationId of owed) {

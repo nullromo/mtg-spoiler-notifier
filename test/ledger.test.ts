@@ -11,9 +11,10 @@ import assert from 'assert';
 import type { Ledger, RunStats } from '../src/deliveryLedger';
 import {
     DeliveryLedger,
-    MAX_TOLERATED_FETCH_FAILURES,
+    MAX_TOLERATED_STUCK_CARDS,
     STALLED_OUTSTANDING_THRESHOLD,
     STALL_TIMEOUT_MS,
+    UNFETCHABLE_GRACE_MS,
 } from '../src/deliveryLedger';
 import { Util } from '../src/util';
 
@@ -62,6 +63,26 @@ const unreadable = (contents: string) => {
 
 const noStats = (): RunStats => {
     return { attempted: {}, delivered: {}, fetchFailures: 0 };
+};
+
+// a ledger in which `count` cards have been unfetchable for `ageMs`, all of
+// them still owed to EMAIL — health() only counts names somebody active is
+// still waiting on
+const unfetchableFor = (count: number, ageMs: number): Ledger => {
+    const names = Array.from({ length: count }, (_, index) => {
+        return `Stuck ${index}`;
+    });
+    const since = new Date(NOW.getTime() - ageMs).toISOString();
+    const unfetchableSince: Partial<Record<string, string>> = {};
+    names.forEach((cardName) => {
+        unfetchableSince[cardName] = since;
+    });
+    return {
+        known: names,
+        lastDeliveredAt: { [EMAIL]: NOW.toISOString() },
+        outstanding: { [EMAIL]: names },
+        unfetchableSince,
+    };
 };
 
 // ---------------------------------------------------------------------------
@@ -145,6 +166,7 @@ test('serialize round-trips and preserves queue order', () => {
         lastDeliveredAt: {},
         // deliberately not alphabetical: this is a queue, not a set
         outstanding: { [EMAIL]: ['Charlie', 'Alpha', 'Bravo'] },
+        unfetchableSince: {},
     };
     const after = loaded(DeliveryLedger.serialize(before));
     assert.deepStrictEqual(after.outstanding[EMAIL], [
@@ -159,7 +181,7 @@ section('ensureDestinations: arrivals start caught up');
 
 test('a destination the ledger has never seen is owed nothing', () => {
     const ledger = DeliveryLedger.ensureDestinations(
-        { known: ['Alpha', 'Bravo'], lastDeliveredAt: {}, outstanding: {} },
+        { known: ['Alpha', 'Bravo'], lastDeliveredAt: {}, outstanding: {}, unfetchableSince: {} },
         ACTIVE,
         NOW,
     );
@@ -183,6 +205,7 @@ test('an existing destination is left exactly as it was', () => {
         known: ['Alpha'],
         lastDeliveredAt: { [EMAIL]: '2020-01-01T00:00:00.000Z' },
         outstanding: { [EMAIL]: ['Alpha'] },
+        unfetchableSince: {},
     };
     const after = DeliveryLedger.ensureDestinations(before, [EMAIL], NOW);
     assert.deepStrictEqual(after.outstanding[EMAIL], ['Alpha']);
@@ -215,6 +238,7 @@ test('an orphaned destination does not accrue new cards', () => {
             known: ['Alpha'],
             lastDeliveredAt: {},
             outstanding: { [EMAIL]: [], [orphan]: ['Alpha'] },
+            unfetchableSince: {},
         },
         ['Alpha', 'Bravo'],
         [EMAIL],
@@ -231,6 +255,7 @@ test('detection appends, so older cards keep their place in the queue', () => {
             known: ['Alpha'],
             lastDeliveredAt: {},
             outstanding: { [EMAIL]: ['Alpha'] },
+            unfetchableSince: {},
         },
         ['Alpha', 'Bravo'],
         [EMAIL],
@@ -247,6 +272,7 @@ test('a withdrawn card stops being owed by anybody', () => {
             known: ['Alpha', 'Gone'],
             lastDeliveredAt: {},
             outstanding: { [EMAIL]: ['Alpha', 'Gone'], [QUOYLES]: ['Gone'] },
+            unfetchableSince: {},
         },
         ['Alpha'],
         ACTIVE,
@@ -264,6 +290,7 @@ test('a card evicted while an active destination still owed it leaves known', ()
             known: ['Gone'],
             lastDeliveredAt: {},
             outstanding: { [EMAIL]: [], [QUOYLES]: ['Gone'] },
+            unfetchableSince: {},
         },
         [],
         ACTIVE,
@@ -278,6 +305,7 @@ test('a fully delivered card that leaves the catalog stays known', () => {
             known: ['Gone'],
             lastDeliveredAt: {},
             outstanding: { [EMAIL]: [], [QUOYLES]: [] },
+            unfetchableSince: {},
         },
         [],
         ACTIVE,
@@ -295,6 +323,7 @@ test('a card owed only by an orphan is evicted but stays known', () => {
             known: ['Gone'],
             lastDeliveredAt: {},
             outstanding: { [EMAIL]: [], [orphan]: ['Gone'] },
+            unfetchableSince: {},
         },
         [],
         [EMAIL],
@@ -315,6 +344,7 @@ test('the queue is every owed card once, in order', () => {
                 [EMAIL]: ['Alpha', 'Bravo'],
                 [QUOYLES]: ['Alpha', 'Charlie'],
             },
+            unfetchableSince: {},
         },
         ACTIVE,
     );
@@ -326,6 +356,7 @@ test('delivery removes the card from that destination only', () => {
         known: ['Alpha'],
         lastDeliveredAt: {},
         outstanding: { [EMAIL]: ['Alpha'], [QUOYLES]: ['Alpha'] },
+        unfetchableSince: {},
     };
     const after = DeliveryLedger.markDelivered(before, 'Alpha', EMAIL, NOW);
     assert.deepStrictEqual(after.outstanding[EMAIL], []);
@@ -336,7 +367,7 @@ test('delivery removes the card from that destination only', () => {
 
 test('delivery leaves the card known', () => {
     const after = DeliveryLedger.markDelivered(
-        { known: ['Alpha'], lastDeliveredAt: {}, outstanding: {} },
+        { known: ['Alpha'], lastDeliveredAt: {}, outstanding: {}, unfetchableSince: {} },
         'Alpha',
         EMAIL,
         NOW,
@@ -355,6 +386,7 @@ test('an unfetchable card rotates to the back of every queue holding it', () => 
                 [EMAIL]: ['Wargling', 'Alpha'],
                 [QUOYLES]: ['Alpha'],
             },
+            unfetchableSince: {},
         },
         'Wargling',
     );
@@ -363,26 +395,143 @@ test('an unfetchable card rotates to the back of every queue holding it', () => 
 });
 
 // ---------------------------------------------------------------------------
+section('unfetchableSince: how long a card has been unfetchable');
+
+test('a ledger written before the field existed loads with an empty clock', () => {
+    // purely additive, so refusing to run over the artifact from the run before
+    // the upgrade would be a self-inflicted outage
+    const ledger = loaded(
+        '{"known": ["Alpha"], "lastDeliveredAt": {}, "outstanding": {}}',
+    );
+    assert.deepStrictEqual(ledger.unfetchableSince, {});
+});
+
+test('an unfetchableSince that is not a timestamp is unreadable', () => {
+    assert.strictEqual(
+        unreadable(
+            '{"known": [], "lastDeliveredAt": {}, "outstanding": {}, "unfetchableSince": {"Alpha": "soon"}}',
+        ),
+        'unreadable',
+    );
+});
+
+test('the clock survives a serialize/parse round trip', () => {
+    const before = DeliveryLedger.markUnfetchable(
+        DeliveryLedger.empty(),
+        'Wargling',
+        NOW,
+    );
+    const after = loaded(DeliveryLedger.serialize(before));
+    assert.deepStrictEqual(after.unfetchableSince, {
+        Wargling: NOW.toISOString(),
+    });
+});
+
+test('marking records the first failure and later ones do not reset it', () => {
+    const first = DeliveryLedger.markUnfetchable(
+        DeliveryLedger.empty(),
+        'Wargling',
+        NOW,
+    );
+    const later = new Date(NOW.getTime() + UNFETCHABLE_GRACE_MS);
+    const second = DeliveryLedger.markUnfetchable(first, 'Wargling', later);
+    // re-stamping every run would reset the clock every thirty minutes and
+    // nothing could ever age past the grace period
+    assert.strictEqual(second.unfetchableSince.Wargling, NOW.toISOString());
+});
+
+test('a successful fetch clears the clock', () => {
+    const marked = DeliveryLedger.markUnfetchable(
+        DeliveryLedger.empty(),
+        'Wargling',
+        NOW,
+    );
+    const cleared = DeliveryLedger.clearUnfetchable(marked, 'Wargling');
+    assert.deepStrictEqual(cleared.unfetchableSince, {});
+});
+
+test('a withdrawn card takes its clock with it', () => {
+    const marked = DeliveryLedger.markUnfetchable(
+        {
+            known: ['Alpha', 'Gone'],
+            lastDeliveredAt: {},
+            outstanding: { [EMAIL]: ['Alpha', 'Gone'] },
+            unfetchableSince: {},
+        },
+        'Gone',
+        NOW,
+    );
+    const { ledger } = DeliveryLedger.evictWithdrawn(marked, ['Alpha'], [EMAIL]);
+    // Scryfall restores withdrawn names, and one that comes back is re-detected
+    // and starts a fresh clock: the grace period is about the current absence
+    assert.deepStrictEqual(ledger.unfetchableSince, {});
+});
+
+test('stuckUnfetchable reports only names past the grace period', () => {
+    const now = new Date(NOW.getTime() + 2 * UNFETCHABLE_GRACE_MS);
+    let ledger: Ledger = {
+        known: ['Fresh', 'Stale'],
+        lastDeliveredAt: {},
+        outstanding: { [EMAIL]: ['Fresh', 'Stale'] },
+        unfetchableSince: {},
+    };
+    ledger = DeliveryLedger.markUnfetchable(ledger, 'Stale', NOW);
+    ledger = DeliveryLedger.markUnfetchable(ledger, 'Fresh', now);
+    assert.deepStrictEqual(
+        DeliveryLedger.stuckUnfetchable(ledger, [EMAIL], now),
+        ['Stale'],
+    );
+});
+
+// ---------------------------------------------------------------------------
 section('health: what fails the run');
 
-test('a handful of unfetchable cards is healthy', () => {
+test('a handful of long-stuck cards is healthy', () => {
     const report = DeliveryLedger.health(
-        DeliveryLedger.empty(),
-        ACTIVE,
-        { ...noStats(), fetchFailures: MAX_TOLERATED_FETCH_FAILURES },
+        unfetchableFor(MAX_TOLERATED_STUCK_CARDS, UNFETCHABLE_GRACE_MS + 1000),
+        [EMAIL],
+        noStats(),
         NOW,
     );
     assert.strictEqual(report.healthy, true);
 });
 
-test('a pile of unfetchable cards fails the run', () => {
+test('a pile of long-stuck cards fails the run', () => {
     const report = DeliveryLedger.health(
-        DeliveryLedger.empty(),
-        ACTIVE,
-        { ...noStats(), fetchFailures: MAX_TOLERATED_FETCH_FAILURES + 1 },
+        unfetchableFor(
+            MAX_TOLERATED_STUCK_CARDS + 1,
+            UNFETCHABLE_GRACE_MS + 1000,
+        ),
+        [EMAIL],
+        noStats(),
         NOW,
     );
     assert.strictEqual(report.healthy, false);
+});
+
+test('a preview wave of unfetchable cards is healthy however big it is', () => {
+    // the regression this whole mechanism exists for: Scryfall lists names
+    // before the card objects are live, so a wave of them 404s on every run
+    // until it clears. Counting those per run failed eleven runs in a row
+    // between 2026-09-11 and 2026-09-13 over one such wave
+    const report = DeliveryLedger.health(
+        unfetchableFor(200, UNFETCHABLE_GRACE_MS - 1000),
+        [EMAIL],
+        { ...noStats(), fetchFailures: 200 },
+        NOW,
+    );
+    assert.strictEqual(report.healthy, true);
+});
+
+test('cards stuck past the grace period but owed to nobody active are healthy', () => {
+    // a departed destination's queue is frozen and never fetched again, so its
+    // names would otherwise sit past the grace period forever
+    const stuck = unfetchableFor(
+        MAX_TOLERATED_STUCK_CARDS + 1,
+        UNFETCHABLE_GRACE_MS + 1000,
+    );
+    const report = DeliveryLedger.health(stuck, [QUOYLES], noStats(), NOW);
+    assert.strictEqual(report.healthy, true);
 });
 
 test('a set release with deliveries succeeding is healthy', () => {
@@ -396,6 +545,7 @@ test('a set release with deliveries succeeding is healthy', () => {
             known: backlog,
             lastDeliveredAt: { [EMAIL]: NOW.toISOString() },
             outstanding: { [EMAIL]: backlog },
+            unfetchableSince: {},
         },
         [EMAIL],
         {
@@ -420,6 +570,7 @@ test('a badly backed-up destination delivering nothing fails the run', () => {
             known: backlog,
             lastDeliveredAt: { [EMAIL]: NOW.toISOString() },
             outstanding: { [EMAIL]: backlog },
+            unfetchableSince: {},
         },
         [EMAIL],
         { attempted: { [EMAIL]: 5 }, delivered: {}, fetchFailures: 0 },
@@ -439,6 +590,7 @@ test('a destination silent for over 72 hours fails the run even with a tiny back
                 ).toISOString(),
             },
             outstanding: { [QUOYLES]: ['Alpha'] },
+            unfetchableSince: {},
         },
         [QUOYLES],
         noStats(),
@@ -458,6 +610,7 @@ test('a destination silent for over 72 hours but owed nothing is healthy', () =>
                 ).toISOString(),
             },
             outstanding: { [QUOYLES]: [] },
+            unfetchableSince: {},
         },
         [QUOYLES],
         noStats(),
@@ -474,6 +627,7 @@ test('a single failed delivery does not fail the run', () => {
             known: ['Alpha'],
             lastDeliveredAt: { [QUOYLES]: NOW.toISOString() },
             outstanding: { [QUOYLES]: ['Alpha'] },
+            unfetchableSince: {},
         },
         [QUOYLES],
         { attempted: { [QUOYLES]: 1 }, delivered: {}, fetchFailures: 0 },
@@ -561,6 +715,7 @@ test('the summary names every active destination, even the caught-up ones', () =
                 [EAST_BAY]: [],
                 [QUOYLES]: ['Wargling'],
             },
+            unfetchableSince: {},
         },
         ACTIVE,
     );
@@ -588,6 +743,7 @@ test('the summary flags a destination that is no longer subscribed', () => {
             known: ['Alpha'],
             lastDeliveredAt: {},
             outstanding: { [EMAIL]: [], [orphan]: ['Alpha'] },
+            unfetchableSince: {},
         },
         [EMAIL],
     );

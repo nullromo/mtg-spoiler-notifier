@@ -34,6 +34,12 @@ export type Ledger = {
     // NOT sorted: array order is queue position, and sorting it would undo the
     // rotation that keeps unfetchable cards from blocking everything behind them
     outstanding: Partial<Record<DestinationId, string[]>>;
+    // ISO timestamp, one per card name, recording when that name FIRST came
+    // back unfetchable and stayed that way. Set on a failed fetch, cleared the
+    // moment one succeeds, so an entry's age is how long Scryfall has been
+    // unable to produce a card it lists in its catalog. health() reads the age,
+    // not the count: see UNFETCHABLE_GRACE_MS
+    unfetchableSince: Partial<Record<string, string>>;
 };
 
 // the outcome of reading the ledger. An unreadable ledger and a genuinely empty
@@ -70,10 +76,24 @@ export const STALL_TIMEOUT_MS = 72 * 60 * 60 * 1000;
 // destination still gets cards out, a dead one does not
 export const STALLED_OUTSTANDING_THRESHOLD = 50;
 
-// one or two catalog names with no card behind them is ordinary — "Wargling"
-// has been one since 2026-08-01, and issue #8 is about surviving them. This
-// many at once means something has changed about the catalog itself
-export const MAX_TOLERATED_FETCH_FAILURES = 10;
+// How long Scryfall gets to put a card behind a name it already lists in its
+// catalog. Names appear there ahead of the card objects and images all through
+// preview season, and until those land every fetch of them 404s — ordinary, and
+// entirely Scryfall's business. Counting those 404s per run made the size of
+// the current preview wave the health signal, so one wave of names failed the
+// run every thirty minutes until it cleared: eleven consecutive failed runs
+// between 2026-09-11 and 2026-09-13, six of them reporting the identical count.
+// Age is the signal that actually separates the two cases, because a wave
+// resolves in hours and a name Scryfall has genuinely broken does not
+export const UNFETCHABLE_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
+
+// ...but a few names stay unfetchable for good — "Wargling" has been one since
+// 2026-08-01, and issue #8 is about surviving them — so a handful past the
+// grace period is still ordinary. This many means something has changed about
+// the catalog itself. Permanently dead names do accumulate, slowly, so if this
+// ever trips on a pile of long-known ones the fix is to raise it, not to
+// shorten the grace period
+export const MAX_TOLERATED_STUCK_CARDS = 10;
 
 const isStringArray = (value: unknown): value is string[] => {
     return (
@@ -105,7 +125,12 @@ const outstandingEntries = (
 
 export class DeliveryLedger {
     public static readonly empty = (): Ledger => {
-        return { known: [], lastDeliveredAt: {}, outstanding: {} };
+        return {
+            known: [],
+            lastDeliveredAt: {},
+            outstanding: {},
+            unfetchableSince: {},
+        };
     };
 
     // Read a ledger off disk. Three shapes are accepted: the legacy flat
@@ -135,6 +160,7 @@ export class DeliveryLedger {
                     known: [...parsed].sort(),
                     lastDeliveredAt: {},
                     outstanding: {},
+                    unfetchableSince: {},
                 },
                 status: 'loaded',
             };
@@ -147,7 +173,8 @@ export class DeliveryLedger {
             };
         }
 
-        const { known, lastDeliveredAt, outstanding } = parsed;
+        const { known, lastDeliveredAt, outstanding, unfetchableSince } =
+            parsed;
 
         if (!isStringArray(known)) {
             return {
@@ -164,6 +191,20 @@ export class DeliveryLedger {
         if (!isPlainObject(lastDeliveredAt)) {
             return {
                 reason: 'The results file has no `lastDeliveredAt` object.',
+                status: 'unreadable',
+            };
+        }
+        // Missing is fine and means "nothing is known to be stuck": this field
+        // arrived after the ledgers in flight, and the artifact from the run
+        // before the upgrade has no record of it. Treating that as unreadable
+        // would refuse to run over a purely additive change. Present but not an
+        // object is corruption, and is treated like any other
+        if (
+            unfetchableSince !== undefined &&
+            !isPlainObject(unfetchableSince)
+        ) {
+            return {
+                reason: 'The results file has an `unfetchableSince` that is not an object.',
                 status: 'unreadable',
             };
         }
@@ -204,6 +245,20 @@ export class DeliveryLedger {
             }
         }
 
+        for (const [cardName, timestamp] of Object.entries(
+            unfetchableSince ?? {},
+        )) {
+            if (
+                typeof timestamp !== 'string' ||
+                Number.isNaN(Date.parse(timestamp))
+            ) {
+                return {
+                    reason: `The results file's unfetchableSince for "${cardName}" is not a timestamp.`,
+                    status: 'unreadable',
+                };
+            }
+        }
+
         return {
             ledger: {
                 known: [...known].sort(),
@@ -212,6 +267,9 @@ export class DeliveryLedger {
                 >,
                 outstanding: outstanding as Partial<
                     Record<DestinationId, string[]>
+                >,
+                unfetchableSince: (unfetchableSince ?? {}) as Partial<
+                    Record<string, string>
                 >,
             },
             status: 'loaded',
@@ -224,6 +282,7 @@ export class DeliveryLedger {
                 known: [...ledger.known].sort(),
                 lastDeliveredAt: ledger.lastDeliveredAt,
                 outstanding: ledger.outstanding,
+                unfetchableSince: ledger.unfetchableSince,
             },
             null,
             4,
@@ -252,7 +311,12 @@ export class DeliveryLedger {
                 lastDeliveredAt[destinationId] = now.toISOString();
             }
         });
-        return { known: ledger.known, lastDeliveredAt, outstanding };
+        return {
+            known: ledger.known,
+            lastDeliveredAt,
+            outstanding,
+            unfetchableSince: ledger.unfetchableSince,
+        };
     };
 
     // Drop cards that have left Scryfall's catalog. They can never be fetched
@@ -303,6 +367,18 @@ export class DeliveryLedger {
             },
         );
 
+        // a withdrawn name is out of the queue, so nothing will ever fetch it
+        // again and its clock would otherwise tick forever. Scryfall restores
+        // withdrawn names, and one that comes back is re-detected and gets a
+        // fresh clock, which is right: the grace period is about how long the
+        // CURRENT absence has lasted
+        const unfetchableSince: Partial<Record<string, string>> = {};
+        Object.entries(ledger.unfetchableSince).forEach(([cardName, since]) => {
+            if (!withdrawn.has(cardName)) {
+                unfetchableSince[cardName] = since;
+            }
+        });
+
         return {
             evicted: [...withdrawn].sort(),
             ledger: {
@@ -311,6 +387,7 @@ export class DeliveryLedger {
                 }),
                 lastDeliveredAt: ledger.lastDeliveredAt,
                 outstanding,
+                unfetchableSince,
             },
         };
     };
@@ -348,6 +425,7 @@ export class DeliveryLedger {
                 known: [...ledger.known, ...detected].sort(),
                 lastDeliveredAt: ledger.lastDeliveredAt,
                 outstanding,
+                unfetchableSince: ledger.unfetchableSince,
             },
         };
     };
@@ -365,6 +443,7 @@ export class DeliveryLedger {
                 known: [...catalog].sort(),
                 lastDeliveredAt: {},
                 outstanding: {},
+                unfetchableSince: {},
             },
             activeIds,
             now,
@@ -457,6 +536,7 @@ export class DeliveryLedger {
                     return owedName !== cardName;
                 }),
             },
+            unfetchableSince: ledger.unfetchableSince,
         };
     };
 
@@ -486,7 +566,79 @@ export class DeliveryLedger {
             known: ledger.known,
             lastDeliveredAt: ledger.lastDeliveredAt,
             outstanding,
+            unfetchableSince: ledger.unfetchableSince,
         };
+    };
+
+    // Start a card's unfetchable clock, or leave a running one alone. Called
+    // on every failed fetch, so the timestamp is the FIRST failure of the
+    // current streak rather than the most recent one — re-stamping it each run
+    // would reset the clock every thirty minutes and nothing could ever age
+    // past the grace period
+    public static readonly markUnfetchable = (
+        ledger: Ledger,
+        cardName: string,
+        now: Date,
+    ): Ledger => {
+        if (ledger.unfetchableSince[cardName] !== undefined) {
+            return ledger;
+        }
+        return {
+            known: ledger.known,
+            lastDeliveredAt: ledger.lastDeliveredAt,
+            outstanding: ledger.outstanding,
+            unfetchableSince: {
+                ...ledger.unfetchableSince,
+                [cardName]: now.toISOString(),
+            },
+        };
+    };
+
+    // Stop the clock. Called on every fetch that succeeds, including one whose
+    // delivery then fails: this tracks whether Scryfall can produce the card,
+    // which is a different question from whether anybody received it
+    public static readonly clearUnfetchable = (
+        ledger: Ledger,
+        cardName: string,
+    ): Ledger => {
+        if (ledger.unfetchableSince[cardName] === undefined) {
+            return ledger;
+        }
+        const unfetchableSince: Partial<Record<string, string>> = {};
+        Object.entries(ledger.unfetchableSince).forEach(([owedName, since]) => {
+            if (owedName !== cardName) {
+                unfetchableSince[owedName] = since;
+            }
+        });
+        return {
+            known: ledger.known,
+            lastDeliveredAt: ledger.lastDeliveredAt,
+            outstanding: ledger.outstanding,
+            unfetchableSince,
+        };
+    };
+
+    // Card names that have been unfetchable for longer than the grace period
+    // and are still owed to somebody active. The second half matters: a name
+    // owed only to a departed destination is never fetched again, so its clock
+    // is frozen at whatever it read when they left and would otherwise count
+    // against the catalog forever
+    public static readonly stuckUnfetchable = (
+        ledger: Ledger,
+        activeIds: DestinationId[],
+        now: Date,
+    ): string[] => {
+        const owedByActive = new Set(DeliveryLedger.queue(ledger, activeIds));
+        const stuck: string[] = [];
+        Object.entries(ledger.unfetchableSince).forEach(([cardName, since]) => {
+            if (since === undefined || !owedByActive.has(cardName)) {
+                return;
+            }
+            if (now.getTime() - Date.parse(since) > UNFETCHABLE_GRACE_MS) {
+                stuck.push(cardName);
+            }
+        });
+        return stuck.sort();
     };
 
     // Whether this run should exit non-zero. Individual delivery failures are
@@ -501,9 +653,19 @@ export class DeliveryLedger {
     ): HealthReport => {
         const problems: string[] = [];
 
-        if (stats.fetchFailures > MAX_TOLERATED_FETCH_FAILURES) {
+        // NOT stats.fetchFailures: how many names failed THIS run is the size
+        // of the current preview wave, and a wave is ordinary no matter how big
+        // it is. What is not ordinary is a name Scryfall still cannot produce a
+        // week after listing it
+        const stuck = DeliveryLedger.stuckUnfetchable(ledger, activeIds, now);
+        if (stuck.length > MAX_TOLERATED_STUCK_CARDS) {
+            const days = Math.round(
+                UNFETCHABLE_GRACE_MS / (24 * 60 * 60 * 1000),
+            );
             problems.push(
-                `${stats.fetchFailures} cards could not be fetched from Scryfall, which is more than the ${MAX_TOLERATED_FETCH_FAILURES} that ordinary catalog churn explains.`,
+                `${stuck.length} cards have been unfetchable from Scryfall for over ${days} days, which is more than the ${MAX_TOLERATED_STUCK_CARDS} that ordinary catalog churn explains: ${Util.formatList(
+                    stuck,
+                )}`,
             );
         }
 

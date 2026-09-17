@@ -39,8 +39,8 @@ delivered.
 _Avoid_: Pending, queued, unsent, backlog
 
 **Ledger**:
-The record of what is known and what each destination is outstanding, carried
-from one run to the next.
+The record of what is known, what each destination is outstanding, and how long
+anything unfetchable has been that way, carried from one run to the next.
 _Avoid_: Results, results file, remembered card list
 
 **Bootstrap**:
@@ -56,8 +56,17 @@ _Avoid_: Deleted, removed, expired
 
 **Unfetchable**:
 A card name that is in the catalog but that Scryfall will not return a card for.
-Ordinary and usually temporary; distinct from withdrawn.
+Ordinary and usually temporary; distinct from withdrawn. How long a name has
+been unfetchable is the thing worth knowing, not how many are at any one moment:
+Scryfall lists names before the card objects are live, so a preview wave of any
+size is ordinary and clears on its own.
 _Avoid_: Broken, missing, invalid
+
+**Stuck**:
+An unfetchable name that has stayed unfetchable past the grace period. A wave of
+previews is unfetchable; only a name Scryfall has failed to produce for a week
+is stuck, and only stuck names say anything about the health of a run.
+_Avoid_: Dead, stale, failing
 
 **Card detail**:
 What Scryfall says a card is — its faces, its rarity and its page. Fetched
