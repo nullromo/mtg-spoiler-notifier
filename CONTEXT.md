@@ -64,8 +64,9 @@ _Avoid_: Broken, missing, invalid
 
 **Stuck**:
 An unfetchable name that has stayed unfetchable past the grace period. A wave of
-previews is unfetchable; only a name Scryfall has failed to produce for a week
-is stuck, and only stuck names say anything about the health of a run.
+previews is unfetchable; a name Scryfall has failed to produce for a week is
+stuck. One stuck name fails a run, where a wave of merely unfetchable ones has
+to be large before it does.
 _Avoid_: Dead, stale, failing
 
 **Card detail**:

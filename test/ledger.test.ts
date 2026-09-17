@@ -11,7 +11,7 @@ import assert from 'assert';
 import type { Ledger, RunStats } from '../src/deliveryLedger';
 import {
     DeliveryLedger,
-    MAX_TOLERATED_STUCK_CARDS,
+    MAX_FETCH_FAILURES_PER_RUN,
     STALLED_OUTSTANDING_THRESHOLD,
     STALL_TIMEOUT_MS,
     UNFETCHABLE_GRACE_MS,
@@ -486,22 +486,10 @@ test('stuckUnfetchable reports only names past the grace period', () => {
 // ---------------------------------------------------------------------------
 section('health: what fails the run');
 
-test('a handful of long-stuck cards is healthy', () => {
+test('one card stuck past the grace period fails the run', () => {
+    // no count of week-old unfetchable names is ordinary, so one is enough
     const report = DeliveryLedger.health(
-        unfetchableFor(MAX_TOLERATED_STUCK_CARDS, UNFETCHABLE_GRACE_MS + 1000),
-        [EMAIL],
-        noStats(),
-        NOW,
-    );
-    assert.strictEqual(report.healthy, true);
-});
-
-test('a pile of long-stuck cards fails the run', () => {
-    const report = DeliveryLedger.health(
-        unfetchableFor(
-            MAX_TOLERATED_STUCK_CARDS + 1,
-            UNFETCHABLE_GRACE_MS + 1000,
-        ),
+        unfetchableFor(1, UNFETCHABLE_GRACE_MS + 1000),
         [EMAIL],
         noStats(),
         NOW,
@@ -509,27 +497,48 @@ test('a pile of long-stuck cards fails the run', () => {
     assert.strictEqual(report.healthy, false);
 });
 
-test('a preview wave of unfetchable cards is healthy however big it is', () => {
-    // the regression this whole mechanism exists for: Scryfall lists names
-    // before the card objects are live, so a wave of them 404s on every run
-    // until it clears. Counting those per run failed eleven runs in a row
-    // between 2026-09-11 and 2026-09-13 over one such wave
+test('a card unfetchable but still inside the grace period is healthy', () => {
     const report = DeliveryLedger.health(
-        unfetchableFor(200, UNFETCHABLE_GRACE_MS - 1000),
+        unfetchableFor(1, UNFETCHABLE_GRACE_MS - 1000),
         [EMAIL],
-        { ...noStats(), fetchFailures: 200 },
+        noStats(),
         NOW,
     );
     assert.strictEqual(report.healthy, true);
 });
 
-test('cards stuck past the grace period but owed to nobody active are healthy', () => {
+test('a preview wave inside the grace period is healthy', () => {
+    // the regression this mechanism exists for: Scryfall lists names before the
+    // card objects are live, so a wave of them 404s on every run until it
+    // clears. Counting those per run at a threshold of ten failed eleven runs
+    // in a row between 2026-09-11 and 2026-09-13 over one such wave
+    const wave = MAX_FETCH_FAILURES_PER_RUN;
+    const report = DeliveryLedger.health(
+        unfetchableFor(wave, UNFETCHABLE_GRACE_MS - 1000),
+        [EMAIL],
+        { ...noStats(), fetchFailures: wave },
+        NOW,
+    );
+    assert.strictEqual(report.healthy, true);
+});
+
+test('too many fetch failures in one run fails it even when all are fresh', () => {
+    // the other half of the rule: enough names failing at once means fetching
+    // is broken, whatever their age
+    const wave = MAX_FETCH_FAILURES_PER_RUN + 1;
+    const report = DeliveryLedger.health(
+        unfetchableFor(wave, UNFETCHABLE_GRACE_MS - 1000),
+        [EMAIL],
+        { ...noStats(), fetchFailures: wave },
+        NOW,
+    );
+    assert.strictEqual(report.healthy, false);
+});
+
+test('a card stuck past the grace period but owed to nobody active is healthy', () => {
     // a departed destination's queue is frozen and never fetched again, so its
     // names would otherwise sit past the grace period forever
-    const stuck = unfetchableFor(
-        MAX_TOLERATED_STUCK_CARDS + 1,
-        UNFETCHABLE_GRACE_MS + 1000,
-    );
+    const stuck = unfetchableFor(1, UNFETCHABLE_GRACE_MS + 1000);
     const report = DeliveryLedger.health(stuck, [QUOYLES], noStats(), NOW);
     assert.strictEqual(report.healthy, true);
 });

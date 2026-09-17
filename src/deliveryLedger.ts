@@ -87,13 +87,18 @@ export const STALLED_OUTSTANDING_THRESHOLD = 50;
 // resolves in hours and a name Scryfall has genuinely broken does not
 export const UNFETCHABLE_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
 
-// ...but a few names stay unfetchable for good — "Wargling" has been one since
-// 2026-08-01, and issue #8 is about surviving them — so a handful past the
-// grace period is still ordinary. This many means something has changed about
-// the catalog itself. Permanently dead names do accumulate, slowly, so if this
-// ever trips on a pile of long-known ones the fix is to raise it, not to
-// shorten the grace period
-export const MAX_TOLERATED_STUCK_CARDS = 10;
+// One is enough. A name Scryfall has listed for a week without ever producing a
+// card behind it is not preview lag, it is a name that needs looking at, and
+// there is no count of those that is ordinary
+export const MAX_TOLERATED_STUCK_CARDS = 0;
+
+// The other half of the rule: however new the names are, this many failing in a
+// single run is its own signal. Ordinary preview waves stay well under it — the
+// worst run in the fortnight to 2026-09-17 saw 38, and the median was 0 — so
+// this catches Scryfall's card endpoint breaking wholesale without waiting out
+// the grace period. A run attempts at most MAX_FETCH_ATTEMPTS_PER_RUN fetches,
+// so this must stay below that to mean anything
+export const MAX_FETCH_FAILURES_PER_RUN = 40;
 
 const isStringArray = (value: unknown): value is string[] => {
     return (
@@ -653,19 +658,29 @@ export class DeliveryLedger {
     ): HealthReport => {
         const problems: string[] = [];
 
-        // NOT stats.fetchFailures: how many names failed THIS run is the size
-        // of the current preview wave, and a wave is ordinary no matter how big
-        // it is. What is not ordinary is a name Scryfall still cannot produce a
-        // week after listing it
+        // Two separate questions, because one wave of previews answers them
+        // differently. How LONG a name has been unfetchable says whether
+        // Scryfall has abandoned it: names appear in the catalog before the
+        // card objects are live, so a fresh 404 is ordinary and a week-old one
+        // is not, at any count. How MANY failed in this one run says whether
+        // fetching is working at all, which a single long-stuck name cannot
         const stuck = DeliveryLedger.stuckUnfetchable(ledger, activeIds, now);
         if (stuck.length > MAX_TOLERATED_STUCK_CARDS) {
             const days = Math.round(
                 UNFETCHABLE_GRACE_MS / (24 * 60 * 60 * 1000),
             );
             problems.push(
-                `${stuck.length} cards have been unfetchable from Scryfall for over ${days} days, which is more than the ${MAX_TOLERATED_STUCK_CARDS} that ordinary catalog churn explains: ${Util.formatList(
+                `${stuck.length} ${
+                    stuck.length === 1 ? 'card has' : 'cards have'
+                } been unfetchable from Scryfall for over ${days} days: ${Util.formatList(
                     stuck,
                 )}`,
+            );
+        }
+
+        if (stats.fetchFailures > MAX_FETCH_FAILURES_PER_RUN) {
+            problems.push(
+                `${stats.fetchFailures} cards could not be fetched from Scryfall in this run, which is more than the ${MAX_FETCH_FAILURES_PER_RUN} that ordinary catalog churn explains.`,
             );
         }
 
